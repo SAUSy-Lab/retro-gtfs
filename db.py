@@ -1,0 +1,391 @@
+# functions involving BD interaction
+import psycopg2		# DB interaction
+import json
+
+# get database connection information
+DBname = str(raw_input('DB name?'))
+DBuser = str(raw_input('DB user?'))
+DBpass = str(raw_input('DB password?'))
+
+# connect and establish a cursor
+conn_string = "host='localhost' dbname='"+DBname+"' user='"+DBuser+"' password='"+DBpass+"'"
+conn = psycopg2.connect(conn_string)
+conn.autocommit = True
+
+def new_trip_id():
+	"""get a next trip_id to start from, defaulting to 1"""
+	c = conn.cursor()
+	c.execute("SELECT MAX(trip_id) FROM nb_vehicles;")
+	try:
+		(trip_id,) = c.fetchone()
+		trip_id += 1
+	except:
+		trip_id = 1
+	return trip_id
+
+def empty_tables():
+	"""clear the tables"""
+	c = conn.cursor()
+	c.execute("""
+		TRUNCATE nb_trips;
+		TRUNCATE nb_vehicles;
+		TRUNCATE nb_stop_times;
+	""")
+
+def copy_vehicles(filename):
+	"""copy a CSV of vehicle records into the nb_vehicles table"""
+	c = conn.cursor()
+	c.execute("""
+		COPY nb_vehicles (trip_id,seq,lon,lat,report_time) FROM %s CSV;
+	""",(filename,))
+
+def update_vehicle_geoms(trip_id):
+	"""make the location geometries from the lat/lon"""
+	c = conn.cursor()
+	c.execute("""
+		UPDATE nb_vehicles SET 
+			location = ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917)
+		WHERE trip_id = %s; 
+	""",(trip_id,))
+
+def trip_length(trip_id):
+	"""return the length of the trip in KM"""
+	c = conn.cursor()
+	c.execute("""
+		SELECT 
+			ST_Length(ST_MakeLine(location ORDER BY seq)) / 1000
+		FROM nb_vehicles 
+		WHERE trip_id = %s
+		GROUP BY trip_id;
+	""",(trip_id,))
+	(km,) = c.fetchone()
+	return km
+
+def delete_trip(trip_id):
+	"""delete a trip completely from the db"""
+	c = conn.cursor()
+	c.execute("""
+		DELETE FROM nb_vehicles WHERE trip_id = %s;
+		DELETE FROM nb_trips WHERE trip_id = %s;
+		DELETE FROM nb_stop_times WHERE trip_id = %s;
+	""",(trip_id,trip_id,trip_id) )
+	return
+
+def delete_trip_times(trip_id):
+	"""delete stop times for a given trip. Used to delete the trip 
+		from the output while keeping the geometry in nb_trips for 
+		error checking"""
+	c = conn.cursor()
+	c.execute("DELETE FROM nb_stop_times WHERE trip_id = %s;",(trip_id,))
+
+def trip_segment_speeds(trip_id):
+	"get a list of the speeds (KMpH) on each inter-vehicle trip segment"
+	c = conn.cursor()
+	# calculate segment-level speeds, in order of appearance
+	c.execute("""
+		SELECT
+			(v1.location <-> v2.location) / 1000 AS km,
+			(v2.report_time - v1.report_time) / 3600 AS hrs
+		FROM nb_vehicles AS v1
+		JOIN nb_vehicles AS v2
+			ON v1.seq = v2.seq-1
+		WHERE v1.trip_id = %s AND v2.trip_id = %s
+		ORDER BY v1.seq;
+	""",(trip_id,trip_id) )
+	# divides km/h, returning a list
+	try:
+		return [ kilometers/hours for (kilometers,hours) in c.fetchall() ]
+	except:
+		f = open('nb/error_log.txt','a')
+		f.write( 'trip '+str(trip_id)+'produced an error in trip_segment_speeds()\n' )
+		f.close()
+		return []
+
+def delete_vehicle( trip_id, position ):
+	"""Remove a vehicle location record and shift the trip_sequence 
+		numbers accordingly"""
+	c = conn.cursor()
+	# delete the record of a single specified vehicle
+	# shift the sequence number down one for all vehicles past the deleted one
+	c.execute("""
+		DELETE FROM nb_vehicles
+		WHERE trip_id = %s AND seq = %s;
+		UPDATE nb_vehicles SET seq = seq - 1
+		WHERE trip_id = %s AND seq > %s;
+	""",( trip_id ,position, trip_id, position ))
+
+def get_vehicles(trip_id):
+	"""gets data on the ordered vehicles for a trip.
+		This is for input into map matching"""
+	c = conn.cursor()
+	# get the trip geometry and timestamps
+	c.execute("""
+		SELECT
+			lon, lat,
+			ROUND(report_time)::int AS t
+		FROM nb_vehicles 
+		WHERE trip_id = %s
+		ORDER BY report_time ASC;
+	""",(trip_id,))
+	# turn that data into correctly formatted lists
+	lons = []
+	lats = []
+	times = []
+	for (lon,lat,time) in c.fetchall():
+		lons.append(lon)
+		lats.append(lat)
+		times.append(time)
+	return (lons,lats,times)
+
+def store_trip(tid,rid,did,vid,confidence,geometry):
+	"""store the trip in the database"""
+	c = conn.cursor()
+	# store the given values
+	c.execute("""
+		INSERT INTO nb_trips ( 
+			trip_id, route_id, direction_id, vehicle_id, match_confidence,
+			match_geom ) 
+		VALUES ( 
+			%s,%s,%s,%s,%s,
+			ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%s),4326),26917)
+		);
+	""",(
+		tid, rid, did, vid, confidence,
+		geometry
+	))
+
+def get_waypoint_times(trip_id):
+	"""get the times for the ordered vehicle locations"""
+	c = conn.cursor()
+	c.execute("""
+		SELECT
+			report_time
+		FROM nb_vehicles
+		WHERE trip_id = %s
+		ORDER BY report_time ASC;
+	""",(trip_id,))
+	# assign the times to a dict keyed by sequence
+	result = []
+	for (time,) in c.fetchall():
+		result.append(time)
+	return result
+
+def get_stops(trip_id,direction_id):
+	"""given the direction id, get the ordered list of stops
+		and their attributes for the direction, returning 
+		as a dictionary"""
+	c = conn.cursor()
+	c.execute("""
+		WITH sub AS (
+			SELECT
+				unnest(stops) AS stop_id
+			FROM nb_directions 
+			WHERE
+				direction_id = %s AND
+				report_time = (
+					SELECT MAX(report_time) -- most recent 
+					FROM nb_directions 
+					WHERE direction_id = %s
+				)
+		)
+		SELECT 
+			sub.stop_id,
+			ST_LineLocatePoint(nb_trips.match_geom,nb_stops.the_geom) AS m,
+			nb_trips.match_geom <-> nb_stops.the_geom AS dist
+		FROM nb_trips
+		JOIN sub ON TRUE
+		JOIN nb_stops
+			ON sub.stop_id = nb_stops.stop_id
+		WHERE nb_trips.trip_id = %s;
+	""",(direction_id,direction_id,trip_id))
+	result = {}
+	for (stop_id,measure,distance) in c.fetchall():
+		result[stop_id] = {
+			'm':measure,
+			'd':distance
+		}
+	return result
+
+def locate_trip_point(trip_id,lon,lat):
+	"""use ST_LineLocatePoint to locate a point on a trip geometry.
+		This is always a point matched to the trip, so should be
+		right on the line. No need to measure distance."""
+	c = conn.cursor()
+	c.execute("""
+		SELECT 
+			ST_LineLocatePoint(
+				match_geom,	-- line
+				ST_Transform(ST_SetSRID(ST_MakePoint(%s,%s),4326),26917)	-- point
+			)
+		FROM nb_trips 
+		WHERE trip_id = %s;
+	""",(lon,lat,trip_id))
+	(result,) = c.fetchone()
+	return result
+
+def store_stop_time(trip_id,stop_id,time):
+	"""store the time and trip of a stop. sequence and service-day-relative 
+		arrival/departure times will be set later."""
+	c = conn.cursor()
+	c.execute("""
+		INSERT INTO nb_stop_times (trip_id,stop_id,etime) 
+		VALUES (%s,%s,%s);
+	""",(trip_id,stop_id,time))
+
+def finish_trip(trip_id):
+	"""stop times are stored, do the rest and be done:
+		1. set the stop_sequence field of nb_stop_times
+		2. find and set the service_id in nb_trips.
+		3. set the arrival and departure times based on that service_id. """
+	c = conn.cursor()
+	# set the stop sequences
+	c.execute("""
+		WITH sub AS (
+			SELECT uid, row_number() OVER (ORDER BY etime ASC)
+			FROM nb_stop_times
+			WHERE trip_id = %s
+		)
+		UPDATE nb_stop_times SET stop_sequence = row_number 
+		FROM sub WHERE sub.uid = nb_stop_times.uid
+	""",(trip_id,))
+	# find the service_id from the earliest stop time
+	c.execute("""
+		SELECT
+			-- from the minimum epoch time for this trip, get the date, 
+			( (TIMESTAMP WITH TIME ZONE 'epoch' + MIN(etime) * INTERVAL '1 second') 
+				AT TIME ZONE 'EDT' )::date 
+		FROM nb_stop_times 
+		WHERE trip_id = %s;
+	""",(trip_id,))
+	(startdate,) = c.fetchone()
+	# get the service_id from the calendar table
+	c.execute("""
+		SELECT DISTINCT service_id 
+		FROM nb_calendar_dates WHERE date = %s::date;
+	""",(startdate,))
+	(service_id,) = c.fetchone()
+	# set the service_id of the trip
+	c.execute("""
+		UPDATE nb_trips SET service_id = %s WHERE trip_id = %s;
+	""",(service_id,trip_id))
+	# set the arrival and departure times
+	c.execute("""
+		-- set the arrival time
+		UPDATE nb_stop_times SET 
+			arrival_time = (
+				TIMESTAMP WITH TIME ZONE 'epoch' + round(etime) * INTERVAL '1 second'
+				) AT TIME ZONE 'EDT' - %s::date
+		WHERE trip_id = %s;
+		-- set the departure time, which is the same
+		UPDATE nb_stop_times SET departure_time = arrival_time WHERE trip_id = %s;
+	""",(startdate,trip_id,trip_id))
+
+def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
+	"""we have recieved a report of a stop from the routeConfig
+		data. Is this a new stop? Have we already heard of it?
+		Decide whether to store it or ignore it. If absolutely
+		nothing has changed about the record, ignore it. If not,
+		store it with the current time."""
+	c = conn.cursor()
+	# see if precisely this record already exists
+	c.execute("""
+		SELECT * FROM nb_stops
+		WHERE 
+			stop_id = %s AND
+			stop_name = %s AND
+			stop_code = %s AND
+			ABS(lon - %s::numeric) <= 0.0001 AND
+			ABS(lat - %s::numeric) <= 0.0001;
+	""",( stop_id,stop_name,stop_code,lon,lat ) )
+	# if any result, we already have this stop
+	if c.rowcount > 0:
+		return
+	# store the stop
+	c.execute("""
+		INSERT INTO nb_stops ( 
+			stop_id, stop_name, stop_code, 
+			the_geom, 
+			lon, lat, report_time 
+		) 
+		VALUES ( 
+			%s, %s, %s, 
+			ST_Transform( ST_SetSRID( ST_MakePoint(%s, %s),4326),26917 ),
+			%s, %s, NOW()
+		)""",( 
+			stop_id,stop_name,stop_code,
+			lon,lat,
+			lon,lat #,time
+		) )
+
+def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
+	"""we have recieved a report of a route direction from the 
+		routeConfig data. Is this a new direction? Have we already 
+		heard of it? Decide whether to store it or ignore it. If 
+		absolutely nothing has changed about the record, ignore it. 
+		If not, store it with the current time."""
+	c = conn.cursor()
+	# see if exactly this record already exists
+	c.execute("""
+		SELECT * FROM nb_directions
+		WHERE
+			route_id = %s AND
+			direction_id = %s AND
+			title = %s AND
+			name = %s AND
+			branch = %s AND
+			useforui = %s AND
+			stops = %s;
+	""",(route_id,did,title,name,branch,useforui,stops))
+	if c.rowcount > 0:
+		return # already have the record
+	# store the data
+	c.execute("""
+		INSERT INTO nb_directions 
+			( 
+				route_id, direction_id, title, 
+				name, branch, useforui, 
+				stops, report_time
+			) 
+		VALUES 
+			( 
+				%s, %s, %s,
+				%s, %s, %s, 
+				%s, NOW()
+			)""",(
+				route_id,did,title,
+				name,branch,useforui,
+				stops
+			)
+		)
+
+#
+# functions for separate processing of trips
+#
+
+#def clear_stop_times_and_trips():
+#	"""clear the trips and stop times tables"""
+#	c = conn.cursor("""
+#		TRUNCATE nb_stop_times;
+#		TRUNCATE nb_trips;
+#	""")
+
+#def sample_trips(num_trips,offset=0):
+#	"""return N trip_ids in a list"""
+#	c = conn.cursor()
+#	c.execute("""
+#		SELECT 
+#			trip_id
+#		FROM nb_vehicles
+#		ORDER BY trip_id ASC
+#		LIMIT %s
+#		OFFSET %s;
+#	""",(num_trips,offset))
+#	trips = []
+#	for (tid,) in c.fetchall():
+#		trips.append(tid)
+#	return trips
+
+
+
+
+
