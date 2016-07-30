@@ -2,16 +2,6 @@
 create tables necessary for NextBus drivn realtime GTFS project
 */
 
-/*
-DROP TABLE IF EXISTS nb_calendar_dates;
-CREATE TABLE nb_calendar_dates (
-    uid serial PRIMARY KEY,
-    service_id integer,
-    "date" date,
-    exception_type integer
-);
-*/
-
 DROP TABLE IF EXISTS nb_routes;
 CREATE TABLE nb_routes (
     route_id varchar PRIMARY KEY,
@@ -32,10 +22,7 @@ CREATE TABLE nb_stops (
     the_geom geometry(POINT,26917),
     report_time timestamp with time zone
 );
--- ignores insertion of records that duplicate either the tag or stopid fields
---CREATE RULE "nb_stops_ignore_duplicate" AS ON INSERT TO nb_stops
---    WHERE EXISTS( SELECT 1 FROM nb_stops WHERE stop_id = NEW.stop_id)
---    DO INSTEAD NOTHING;
+CREATE INDEX ON nb_stops (stop_id);
 
 DROP TABLE IF EXISTS nb_directions;
 CREATE TABLE nb_directions (
