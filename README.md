@@ -1,2 +1,2 @@
-# GTFSrealtime
-collects NextBus realtime transit data and processes it into a retroactive GTFS
+# nb-gtfs
+Collects NextBus realtime transit location data and processes it into a retroactive GTFS package. Currently applied to the Toronto Transit Commission.
