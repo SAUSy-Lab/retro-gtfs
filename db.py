@@ -1,14 +1,15 @@
 # functions involving BD interaction
 import psycopg2		# DB interaction
 import json
+from conf import conf
 
-# get database connection information
-DBname = str(raw_input('DB name?'))
-DBuser = str(raw_input('DB user?'))
-DBpass = str(raw_input('DB password?'))
-
-# connect and establish a cursor
-conn_string = "host='localhost' dbname='"+DBname+"' user='"+DBuser+"' password='"+DBpass+"'"
+# connect and establish a cursor, based on parameters in conf.py
+conn_string = (
+	"host='"+conf['db']['host']
+	+"' dbname='"+conf['db']['name']
+	+"' user='"+conf['db']['user']
+	+"' password='"+conf['db']['password']+"'"
+)
 conn = psycopg2.connect(conn_string)
 conn.autocommit = True
 

@@ -4,7 +4,8 @@ import requests, time, db
 import xml.etree.ElementTree as ET
 from trip import trip_obj
 import threading
-from os import remove # deletes a file
+from os import remove, path
+from conf import conf # configuration
 
 # GLOBALS
 fleet = {} 			# operating vehicles in the ( fleet vid -> trip_obj )
@@ -28,7 +29,7 @@ def get_new_vehicles():
 	try: 
 		response = requests.get(
 			'http://webservices.nextbus.com/service/publicXMLFeed',
-			params={'command':'vehicleLocations','a':'ttc','t':last_update},
+			params={'command':'vehicleLocations','a':conf['agency'],'t':last_update},
 			headers={'Accept-Encoding':'gzip, deflate'},
 			timeout=3
 		)
@@ -101,7 +102,7 @@ def get_new_vehicles():
 	# release the fleet lock
 	print len(fleet),'in fleet,',len(vehicles_to_store),'to store,',len(ending_trips),'ending trips'
 	# create/open a temporary file to write the results to
-	filename = '/home/ubuntu/nb/temp/'+threading.currentThread().getName()+'.csv'
+	filename = path.abspath('temp')+'/'+threading.currentThread().getName()+'.csv'
 	f = open(filename,'w+')
 	# for each vehicle record
 	for (tid,seq,lon,lat,etime) in vehicles_to_store:
@@ -126,7 +127,7 @@ def fetch_route(route_id):
 	try: 
 		response = requests.get(
 			'http://webservices.nextbus.com/service/publicXMLFeed', 
-			params={'command':'routeConfig','a':'ttc','r':route_id,'verbose':''}, 
+			params={'command':'routeConfig','a':conf['agency'],'r':route_id,'verbose':''}, 
 			headers={'Accept-Encoding':'gzip, deflate'}, 
 			timeout=3
 		)
@@ -182,7 +183,7 @@ def all_routes():
 	try:
 		response = requests.get(
 			'http://webservices.nextbus.com/service/publicXMLFeed', 
-			params={'command':'routeList','a':'ttc'}, 
+			params={'command':'routeList','a':conf['agency']}, 
 			headers={'Accept-Encoding':'gzip, deflate'}, 
 			timeout=5
 		)
