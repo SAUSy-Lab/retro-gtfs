@@ -236,8 +236,8 @@ def store_stop_time(trip_id,stop_id,time):
 def finish_trip(trip_id):
 	"""stop times are stored, do the rest and be done:
 		1. set the stop_sequence field of nb_stop_times
-		2. find and set the service_id in nb_trips.
-		3. set the arrival and departure times based on that service_id. """
+		2. determine and set the service_id in nb_trips.
+		3. set the arrival and departure times based on the day start"""
 	c = conn.cursor()
 	# set the stop sequences
 	c.execute("""
@@ -249,40 +249,34 @@ def finish_trip(trip_id):
 		UPDATE nb_stop_times SET stop_sequence = row_number 
 		FROM sub WHERE sub.uid = nb_stop_times.uid
 	""",(trip_id,))
-	# find the service_id from the earliest stop time
+	# get the first start time
 	c.execute("""
-		SELECT
-			-- from the minimum epoch time for this trip, get the date, 
-			( (TIMESTAMP WITH TIME ZONE 'epoch' + MIN(etime) * INTERVAL '1 second') 
-				AT TIME ZONE 'EDT' )::date 
+		SELECT etime
 		FROM nb_stop_times 
-		WHERE trip_id = %s;
+		WHERE trip_id = %s AND stop_sequence = 1;
 	""",(trip_id,))
-	(startdate,) = c.fetchone()
-	# get the service_id from the calendar table
-	c.execute("""
-		SELECT DISTINCT service_id 
-		FROM nb_calendar_dates WHERE date = %s::date;
-	""",(startdate,))
-	(service_id,) = c.fetchone()
-	# set the service_id of the trip
+	(t,) = c.fetchone()
+	t = t
+	# find the etime of the first moment of the day
+	# first center the day on local time
+	tlocal = t - 4*3600
+	from_dawn = tlocal % (24*3600)
+	# service_id is distinct to local day
+	service_id = (tlocal-from_dawn)/(24*3600)
+	day_start = t - from_dawn
 	c.execute("""
 		UPDATE nb_trips SET service_id = %s WHERE trip_id = %s;
 	""",(service_id,trip_id))
 	# set the arrival and departure times
 	c.execute("""
-		-- set the arrival time
 		UPDATE nb_stop_times SET 
-			arrival_time = (
-				TIMESTAMP WITH TIME ZONE 'epoch' + round(etime) * INTERVAL '1 second'
-				) AT TIME ZONE 'EDT' - %s::date
+			arrival_time = ROUND(etime - %s) * INTERVAL '1 second',
+			departure_time = ROUND(etime - %s) * INTERVAL '1 second'
 		WHERE trip_id = %s;
-		-- set the departure time, which is the same
-		UPDATE nb_stop_times SET departure_time = arrival_time WHERE trip_id = %s;
-	""",(startdate,trip_id,trip_id))
+	""",(day_start,day_start,trip_id))
 
 def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
-	"""we have recieved a report of a stop from the routeConfig
+	"""we have received a report of a stop from the routeConfig
 		data. Is this a new stop? Have we already heard of it?
 		Decide whether to store it or ignore it. If absolutely
 		nothing has changed about the record, ignore it. If not,
