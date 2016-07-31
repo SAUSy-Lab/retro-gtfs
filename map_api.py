@@ -2,6 +2,7 @@
 # avoid circular dependencies
 
 import requests, json, db
+from conf import conf
 
 def map_match(trip_id,include_times=True):
 	"""Map Match the GPS track to the street/rail network
@@ -21,9 +22,9 @@ def map_match(trip_id,include_times=True):
 	if include_times:
 		options['timestamps'] = times
 	response = requests.get(
-		'http://206.167.182.17:5000/match/v1/transit/'+coords,
+		conf['OSRMserver']['url']+'/match/v1/transit/'+coords,
 		params=options,
-		timeout=10
+		timeout=conf['OSRMserver']['timeout']
 	)
 	# parse the result
 	j = json.loads(response.text)
@@ -34,66 +35,4 @@ def map_match(trip_id,include_times=True):
 			print 'trying',trip_id,'again without times'
 			# try without times
 			j = map_match(trip_id,False)
-	multi_match_test(j,trip_id)
 	return j
-
-def multi_match_test(match_result,trip_id):
-	"""test a map match response object for multiple matches.
-		If found, write these into a geojson file in the temp
-		folder for individual analysis."""
-	if match_result['code'] != 'Ok':
-		return
-	if len(match_result['matchings']) == 1:
-		return
-	# has matches (more than one)
-	# start the output geojson object
-	output = {
-		'type':'FeatureCollection',
-		'features':[]
-	}
-	# iterate over matches
-	for i in range(0,len(match_result['matchings'])):
-		match = match_result['matchings'][i]
-		# append match geometry with match number
-		output['features'].append(
-			{
-				'type':'feature',
-				'geometry':match['geometry'],
-				'properties': {
-					'input':False,
-					'match_num':i,
-					'confidence':match['confidence']
-				}
-			}
-		)
-	# add input geometry
-	(lons,lats,times) = db.get_vehicles(trip_id)
-	output['features'].append(
-		{
-			'type':'feature',
-			'geometry':{
-				'type':'LineString',
-				'coordinates':[ [float(lon),float(lat)] for (lon,lat) in zip(lons,lats)],
-			},
-			'properties':{
-				'input':True,
-				'match_num':None,
-				'confidence':None
-			}
-		}
-	)
-	# write the file
-	filename = '/home/ubuntu/nb/match_pairs/'+str(trip_id)+'.geojson'
-	f = open(filename,'w+')
-	f.write(json.dumps(output))
-	f.close()
-	return
-
-
-
-
-
-
-
-
-
