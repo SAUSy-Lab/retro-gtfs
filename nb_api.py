@@ -10,6 +10,7 @@ from conf import conf # configuration
 # GLOBALS
 fleet = {} 			# operating vehicles in the ( fleet vid -> trip_obj )
 next_trip_id = db.new_trip_id()	# next trip_id to be assigned 
+next_bid = db.new_block_id()		# next block_id to be assigned
 last_update = 0	# last update from server, removed results already reported
 
 fleet_lock = threading.Lock()
@@ -23,7 +24,8 @@ def get_new_vehicles():
 		have ended"""
 	global fleet
 	global next_trip_id
-	global last_update	
+	global next_bid
+	global last_update
 	# time the request was sent
 	request_time = time.time()
 	try: 
@@ -73,19 +75,22 @@ def get_new_vehicles():
 			try: # have we seen this vehicle recently?
 				fleet[vid]
 			except: # haven't seen it! create a new trip
-				fleet[vid] = trip_obj(next_trip_id,did,rid,vid,last_seen)
-				# increment the trip counter
+				fleet[vid] = trip_obj(next_trip_id,next_bid,did,rid,vid,last_seen)
+				# increment the trip and block counters
 				next_trip_id += 1
+				next_bid += 1
 				# store the vehicle record
 				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,last_seen))
 				# done with this vehicle
 				continue
-			# see if anything has changed that makes this a new trip
+			# see if anything ELSE has changed that makes this a new trip
 			if ( fleet[vid].route_id != rid or fleet[vid].direction_id != did ):
+				# get the block_id from the previous trip
+				last_bid = fleet[vid].block_id
 				# this trip is ending
 				ending_trips.append( fleet[vid] )
 				# create the new trip in it's place
-				fleet[vid] = trip_obj(next_trip_id,did,rid,vid,last_seen)
+				fleet[vid] = trip_obj(next_trip_id,last_bid,did,rid,vid,last_seen)
 				# increment the trip counter
 				next_trip_id += 1
 				# store the vehicle record

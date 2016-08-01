@@ -24,6 +24,17 @@ def new_trip_id():
 		trip_id = 1
 	return trip_id
 
+def new_block_id():
+	"""get a next block_id to start from, defaulting to 1"""
+	c = conn.cursor()
+	c.execute("SELECT MAX(block_id) FROM nb_trips;")
+	try:
+		(block_id,) = c.fetchone()
+		block_id += 1
+	except:
+		block_id = 1
+	return block_id
+
 def empty_tables():
 	"""clear the tables"""
 	c = conn.cursor()
@@ -138,20 +149,23 @@ def get_vehicles(trip_id):
 		times.append(time)
 	return (lons,lats,times)
 
-def store_trip(tid,rid,did,vid,confidence,geometry):
+def store_trip(tid,bid,rid,did,vid,confidence,geometry):
 	"""store the trip in the database"""
 	c = conn.cursor()
 	# store the given values
 	c.execute("""
 		INSERT INTO nb_trips ( 
-			trip_id, route_id, direction_id, vehicle_id, match_confidence,
+			trip_id, block_id, route_id, direction_id, vehicle_id, 
+			match_confidence,
 			match_geom ) 
 		VALUES ( 
 			%s,%s,%s,%s,%s,
+			%s,
 			ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%s),4326),26917)
 		);
 	""",(
-		tid, rid, did, vid, confidence,
+		tid, bid, rid, did, vid, 
+		confidence,
 		geometry
 	))
 

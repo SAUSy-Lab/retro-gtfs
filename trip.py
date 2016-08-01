@@ -12,9 +12,10 @@ class trip_obj(object):
 	"""The trip class provides all the methods needed for dealing
 		with one observed trip/track."""
 
-	def __init__(self,trip_id,direction_id,route_id,vehicle_id,last_seen):
+	def __init__(self,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
 		# initial settings
 		self.trip_id = trip_id				# int
+		self.block_id = block_id			# int
 		self.direction_id = direction_id	# str
 		self.route_id = route_id			# int
 		self.vehicle_id = vehicle_id		# int
@@ -64,6 +65,7 @@ class trip_obj(object):
 		# as far as that table goes
 		db.store_trip(
 			self.trip_id,
+			self.block_id,
 			self.route_id,
 			self.direction_id,
 			self.vehicle_id,
