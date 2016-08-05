@@ -108,9 +108,7 @@ def trip_segment_speeds(trip_id):
 	try:
 		return [ kilometers/hours for (kilometers,hours) in c.fetchall() ]
 	except:
-		f = open('nb/error_log.txt','a')
-		f.write( 'trip '+str(trip_id)+'produced an error in trip_segment_speeds()\n' )
-		f.close()
+		print 'trip '+str(trip_id)+'produced an error in trip_segment_speeds()' )
 		return []
 
 def delete_vehicle( trip_id, position ):
