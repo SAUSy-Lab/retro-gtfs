@@ -24,13 +24,13 @@ db.empty_tables()
 # threading this makes it faster
 #print 'requesting all route data'
 routes = all_routes()
-#for route_id in routes:
-#	t = threading.Thread(target=fetch_route,args=(route_id,))
-#	t.start()
-#	if threading.active_count() >= 20:
-#		sleep(3)
+for route_id in routes:
+	t = threading.Thread(target=fetch_route,args=(route_id,))
+	t.start()
+	if threading.active_count() >= 20:
+		sleep(3)
 
-#sleep(10)
+sleep(10)
 
 # call the big function. This takes longer to run the first time, 
 get_new_vehicles()
