@@ -2,6 +2,7 @@
 import psycopg2		# DB interaction
 import json
 from conf import conf
+import random
 
 # connect and establish a cursor, based on parameters in conf.py
 conn_string = (
@@ -10,12 +11,27 @@ conn_string = (
 	+"' user='"+conf['db']['user']
 	+"' password='"+conf['db']['password']+"'"
 )
-conn = psycopg2.connect(conn_string)
-conn.autocommit = True
+connection_1 = psycopg2.connect(conn_string)
+connection_2 = psycopg2.connect(conn_string)
+connection_3 = psycopg2.connect(conn_string)
+connection_1.autocommit = True
+connection_2.autocommit = True
+connection_3.autocommit = True
+
+def cursor():
+	"""provide a cursor randomly from one of the 
+		available connections"""
+	c = random.randint(1,3)
+	if c == 1:
+		return connection_1.cursor()
+	elif c == 2:
+		return connection_2.cursor()
+	else:
+		return connection_3.cursor()
 
 def new_trip_id():
 	"""get a next trip_id to start from, defaulting to 1"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("SELECT MAX(trip_id) FROM nb_vehicles;")
 	try:
 		(trip_id,) = c.fetchone()
@@ -26,7 +42,7 @@ def new_trip_id():
 
 def new_block_id():
 	"""get a next block_id to start from, defaulting to 1"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("SELECT MAX(block_id) FROM nb_trips;")
 	try:
 		(block_id,) = c.fetchone()
@@ -37,7 +53,7 @@ def new_block_id():
 
 def empty_tables():
 	"""clear the tables"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		TRUNCATE nb_trips;
 		TRUNCATE nb_vehicles;
@@ -46,14 +62,14 @@ def empty_tables():
 
 def copy_vehicles(filename):
 	"""copy a CSV of vehicle records into the nb_vehicles table"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		COPY nb_vehicles (trip_id,seq,lon,lat,report_time) FROM %s CSV;
 	""",(filename,))
 
 def update_vehicle_geoms(trip_id):
 	"""make the location geometries from the lat/lon"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		UPDATE nb_vehicles SET 
 			location = ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917)
@@ -62,7 +78,7 @@ def update_vehicle_geoms(trip_id):
 
 def trip_length(trip_id):
 	"""return the length of the trip in KM"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		SELECT 
 			ST_Length(ST_MakeLine(location ORDER BY seq)) / 1000
@@ -75,7 +91,7 @@ def trip_length(trip_id):
 
 def delete_trip(trip_id):
 	"""delete a trip completely from the db"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		DELETE FROM nb_vehicles WHERE trip_id = %s;
 		DELETE FROM nb_trips WHERE trip_id = %s;
@@ -87,12 +103,12 @@ def delete_trip_times(trip_id):
 	"""delete stop times for a given trip. Used to delete the trip 
 		from the output while keeping the geometry in nb_trips for 
 		error checking"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("DELETE FROM nb_stop_times WHERE trip_id = %s;",(trip_id,))
 
 def trip_segment_speeds(trip_id):
 	"get a list of the speeds (KMpH) on each inter-vehicle trip segment"
-	c = conn.cursor()
+	c = cursor()
 	# calculate segment-level speeds, in order of appearance
 	c.execute("""
 		SELECT
@@ -114,7 +130,7 @@ def trip_segment_speeds(trip_id):
 def delete_vehicle( trip_id, position ):
 	"""Remove a vehicle location record and shift the trip_sequence 
 		numbers accordingly"""
-	c = conn.cursor()
+	c = cursor()
 	# delete the record of a single specified vehicle
 	# shift the sequence number down one for all vehicles past the deleted one
 	c.execute("""
@@ -127,7 +143,7 @@ def delete_vehicle( trip_id, position ):
 def get_vehicles(trip_id):
 	"""gets data on the ordered vehicles for a trip.
 		This is for input into map matching"""
-	c = conn.cursor()
+	c = cursor()
 	# get the trip geometry and timestamps
 	c.execute("""
 		SELECT
@@ -149,7 +165,7 @@ def get_vehicles(trip_id):
 
 def store_trip(tid,bid,rid,did,vid,confidence,geometry):
 	"""store the trip in the database"""
-	c = conn.cursor()
+	c = cursor()
 	# store the given values
 	c.execute("""
 		INSERT INTO nb_trips ( 
@@ -169,7 +185,7 @@ def store_trip(tid,bid,rid,did,vid,confidence,geometry):
 
 def get_waypoint_times(trip_id):
 	"""get the times for the ordered vehicle locations"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		SELECT
 			report_time
@@ -187,7 +203,7 @@ def get_stops(trip_id,direction_id):
 	"""given the direction id, get the ordered list of stops
 		and their attributes for the direction, returning 
 		as a dictionary"""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		WITH sub AS (
 			SELECT
@@ -223,7 +239,7 @@ def locate_trip_point(trip_id,lon,lat):
 	"""use ST_LineLocatePoint to locate a point on a trip geometry.
 		This is always a point matched to the trip, so should be
 		right on the line. No need to measure distance."""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		SELECT 
 			ST_LineLocatePoint(
@@ -239,7 +255,7 @@ def locate_trip_point(trip_id,lon,lat):
 def store_stop_time(trip_id,stop_id,time):
 	"""store the time and trip of a stop. sequence and service-day-relative 
 		arrival/departure times will be set later."""
-	c = conn.cursor()
+	c = cursor()
 	c.execute("""
 		INSERT INTO nb_stop_times (trip_id,stop_id,etime) 
 		VALUES (%s,%s,%s);
@@ -250,7 +266,7 @@ def finish_trip(trip_id):
 		1. set the stop_sequence field of nb_stop_times
 		2. determine and set the service_id in nb_trips.
 		3. set the arrival and departure times based on the day start"""
-	c = conn.cursor()
+	c = cursor()
 	# set the stop sequences
 	c.execute("""
 		WITH sub AS (
@@ -293,7 +309,7 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 		Decide whether to store it or ignore it. If absolutely
 		nothing has changed about the record, ignore it. If not,
 		store it with the current time."""
-	c = conn.cursor()
+	c = cursor()
 	# see if precisely this record already exists
 	c.execute("""
 		SELECT * FROM nb_stops
@@ -330,7 +346,7 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 		heard of it? Decide whether to store it or ignore it. If 
 		absolutely nothing has changed about the record, ignore it. 
 		If not, store it with the current time."""
-	c = conn.cursor()
+	c = cursor()
 	# see if exactly this record already exists
 	c.execute("""
 		SELECT * FROM nb_directions
@@ -371,14 +387,14 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 
 #def clear_stop_times_and_trips():
 #	"""clear the trips and stop times tables"""
-#	c = conn.cursor("""
+#	c = cursor("""
 #		TRUNCATE nb_stop_times;
 #		TRUNCATE nb_trips;
 #	""")
 
 #def sample_trips(num_trips,offset=0):
 #	"""return N trip_ids in a list"""
-#	c = conn.cursor()
+#	c = cursor()
 #	c.execute("""
 #		SELECT 
 #			trip_id
