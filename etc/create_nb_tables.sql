@@ -2,6 +2,7 @@
 create tables necessary for NextBus drivn realtime GTFS project
 */
 
+/*
 DROP TABLE IF EXISTS nb_routes;
 CREATE TABLE nb_routes (
 	route_id varchar PRIMARY KEY,
@@ -10,6 +11,7 @@ CREATE TABLE nb_routes (
 	route_type integer, -- required
 	title varchar -- not required
 );
+*/
 
 DROP TABLE IF EXISTS nb_stops;
 CREATE TABLE nb_stops (

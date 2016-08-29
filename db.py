@@ -58,6 +58,8 @@ def empty_tables():
 		TRUNCATE nb_trips;
 		TRUNCATE nb_vehicles;
 		TRUNCATE nb_stop_times;
+		TRUNCATE nb_directions;
+		TRUNCATE nb_stops;
 	""")
 
 def copy_vehicles(filename):
