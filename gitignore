@@ -1,0 +1,6 @@
+# compiled python code
+*.pyc
+
+# temporary files
+temp/*.csv
+
