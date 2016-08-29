@@ -32,7 +32,11 @@ def map_match(trip_id,include_times=True):
 	# without times. Avoid infinite recursion
 	if include_times: # was first try
 		if j['code']=='Ok' and len(j['matchings']) > 1: # and now more than one match
+<<<<<<< HEAD
 			print '\ttrying',trip_id,'again without times'
+=======
+			print '\t',trip_id,'again without times'
+>>>>>>> 7b9fa3822f81309e40086ee2ba8bd60db54112bc
 			# try without times
 			j = map_match(trip_id,False)
 	return j

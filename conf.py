@@ -2,19 +2,19 @@
 # set the parameters unique to your setup below
 
 conf = {
-	# database connnection
+	# PostgreSQL database connnection
 	'db':
 		{
-			'host':'localhost',
+			'host':'',
 			'name':'',
-			'user':'postgres',
+			'user':'',
 			'password':''
 		},
-	# agency tag for nextbus API
-	'agency':'ttc',
+	# agency tag for the Nextbus API
+	'agency':'',
 	# Where is the ORSM server? 
 	'OSRMserver':{
-		'url':'http://???/match/v1/transit/',
+		'url':'http://???',
 		'timeout':10
 	}
 }
