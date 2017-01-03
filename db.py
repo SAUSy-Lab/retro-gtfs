@@ -165,7 +165,7 @@ def get_vehicles(trip_id):
 		times.append(time)
 	return (lons,lats,times)
 
-def store_trip(tid,bid,rid,did,vid,confidence,geometry):
+def store_trip(tid,bid,rid,did,vid,confidence,geometry_match):
 	"""store the trip in the database"""
 	c = cursor()
 	# store the given values
@@ -182,7 +182,7 @@ def store_trip(tid,bid,rid,did,vid,confidence,geometry):
 	""",(
 		tid, bid, rid, did, vid, 
 		confidence,
-		geometry
+		geometry_match
 	))
 
 def get_waypoint_times(trip_id):
