@@ -1,5 +1,6 @@
 # CONFIGURATION FILE
 # set the parameters unique to your setup below
+# then rename this file to "conf.py"
 
 conf = {
 	# PostgreSQL database connnection
