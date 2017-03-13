@@ -5,15 +5,19 @@ import re, db, json
 import map_api
 from numpy import mean
 import threading
+import sys
 
 print_lock = threading.Lock()
+
+# should we process trips (or simply store the vehicles)? default False
+doMatching = True if 'doMatching' in sys.argv else False
 
 class trip_obj(object):
 	"""The trip class provides all the methods needed for dealing
 		with one observed trip/track."""
 
 	def __init__(self,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
-		# initial settings
+		# set initial attributes
 		self.trip_id = trip_id				# int
 		self.block_id = block_id			# int
 		self.direction_id = direction_id	# str
@@ -21,15 +25,15 @@ class trip_obj(object):
 		self.vehicle_id = vehicle_id		# int
 		self.last_seen = last_seen			# last vehicle report (epoch time)
 		self.seq = 1							# sequence which increments at each report
-		# declare these for later
-		self.speed_string = ""			# str
-
-		self.match_confidence = -1		# 0 - 1 real
-		self.match_geometry = {}		# parsed geojson object
-
-		self.stops = {}				# not set until process()
-		self.segment_speeds = []	# reported speeds of all segments
-		self.waypoints = []			# points on the finallized trip only
+		# store these attributes as a trip in the db
+		db.insert_trip( trip_id, block_id, route_id, direction_id, vehicle_id )
+		# declare several vars for later in the matching process
+		self.speed_string = ""				# str
+		self.match_confidence = -1			# 0 - 1 real
+		self.match_geometry = {}			# parsed geojson object
+		self.stops = {}						# not set until process()
+		self.segment_speeds = []			# reported speeds of all segments
+		self.waypoints = []					# points on the finallized trip only
 
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
@@ -50,6 +54,8 @@ class trip_obj(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
+		if not doMatching:
+			return
 		# we now have a clean geometry to send for map-matching
 		match = map_api.map_match(self.trip_id)
 		# discard results with multiple matches for now
@@ -63,12 +69,8 @@ class trip_obj(object):
 		match = match['matchings'][0]
 		# store the trip and geometry since this is all the same 
 		# as far as that table goes
-		db.store_trip(
+		db.add_trip_match(
 			self.trip_id,
-			self.block_id,
-			self.route_id,
-			self.direction_id,
-			self.vehicle_id,
 			match['confidence'],
 			json.dumps(match['geometry'])
 		)
@@ -116,6 +118,9 @@ class trip_obj(object):
 		else:
 			db.delete_trip_times(self.trip_id)
 		return
+
+	def match():
+		"""sdsds"""
 
 	def has_errors(self):
 		"""see if the speed segments indicate that there are any 

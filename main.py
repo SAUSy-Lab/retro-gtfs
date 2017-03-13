@@ -10,8 +10,6 @@ import sys
 # takes arguments from the command line
 # should we get route information from the API? default False
 getRoutes = True if 'getRoutes' in sys.argv else False
-# should we process trips (or simply store the vehicles)? default False
-processTrips = True if 'processTrips' in sys.argv else False
 # should existing data be truncated? default False;
 truncateData = True if 'truncateData' in sys.argv else False
 
@@ -45,7 +43,7 @@ if getRoutes:
 	sleep(10)
 
 # call the big function. This takes longer to run the first time, 
-get_new_vehicles(processTrips)
+get_new_vehicles()
 
 # so wait a bit longer than usual to call the timer function 10secs later
 threading.Timer( 10, time_loop ).start()

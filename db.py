@@ -165,25 +165,31 @@ def get_vehicles(trip_id):
 		times.append(time)
 	return (lons,lats,times)
 
-def store_trip(tid,bid,rid,did,vid,confidence,geometry_match):
+def add_trip_match(trip_id,confidence,geometry_match):
+	"""update the trip record with it's matched geometry"""
+	c = cursor()
+	# store the given values
+	c.execute("""
+		UPDATE nb_trips
+		SET  
+			match_confidence = %s,
+			match_geom = ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%s),4326),26917)
+		WHERE trip_id  = %s;
+		""",( confidence, geometry_match, trip_id)
+	)
+
+def insert_trip(tid,bid,rid,did,vid):
 	"""store the trip in the database"""
 	c = cursor()
 	# store the given values
 	c.execute("""
-		INSERT INTO nb_trips ( 
-			trip_id, block_id, route_id, direction_id, vehicle_id, 
-			match_confidence,
-			match_geom ) 
-		VALUES ( 
-			%s,%s,%s,%s,%s,
-			%s,
-			ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%s),4326),26917)
-		);
-	""",(
-		tid, bid, rid, did, vid, 
-		confidence,
-		geometry_match
-	))
+		INSERT INTO nb_trips 
+			( trip_id, block_id, route_id, direction_id, vehicle_id ) 
+		VALUES 
+			( %s,%s,%s,%s,%s );
+	""",
+		( tid, bid, rid, did, vid)
+	)
 
 def get_waypoint_times(trip_id):
 	"""get the times for the ordered vehicle locations"""

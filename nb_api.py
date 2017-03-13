@@ -17,7 +17,7 @@ fleet_lock = threading.Lock()
 print_lock = threading.Lock()
 record_check_lock = threading.Lock()
 
-def get_new_vehicles(processTrips=False):
+def get_new_vehicles():
 	"""hit the vehicleLocations API and get all vehicles that have updated 
 		since the last check. Associate each vehicle with a trip_id (tid)
 		and send the trips for processing when it is determined that they 
@@ -117,13 +117,12 @@ def get_new_vehicles(processTrips=False):
 	f.close()
 	db.copy_vehicles(filename)
 	remove(filename)
-	if processTrips:
-		# process the trips that are ending
-		for trip in ending_trips:
-			# start each in it's own thread
-			t = threading.Thread(target=trip.process)
-			t.setDaemon(True)
-			t.start()
+	# process the trips that are ending
+	for trip in ending_trips:
+		# start each in it's own thread
+		t = threading.Thread(target=trip.process)
+		t.setDaemon(True)
+		t.start()
 
 def fetch_route(route_id):
 	"""function for requesting and storing all relevant information 
