@@ -54,21 +54,24 @@ class trip_obj(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
-		if not doMatching:
-			return
-		# we now have a clean geometry to send for map-matching
+		if doMatching:
+			self.match()
+		
+
+	def match(self):
+		"""Match the trip to the road network, and do all the
+			things that follow therefrom."""
 		match = map_api.map_match(self.trip_id)
-		# discard results with multiple matches for now
-		# TODO stop discarding these
+		# flag results with multiple matches for now until you can 
+		# figure out exactly what is going wrong
 		if match['code'] != 'Ok':
-			return '\t\t',self.trip_id,'match problem, code not "Ok"'
+			return db.flag_trip(self.trip_id,'match problem, code not "Ok"')
 		if len(match['matchings']) > 1:
-			print '\t\t',self.trip_id,'had more than one match :-(!!'
-			return
+			return db.flag_trip(self.trip_id,'more than one match segment')
+		# get the matched points
 		tracepoints = match['tracepoints']
 		match = match['matchings'][0]
-		# store the trip and geometry since this is all the same 
-		# as far as that table goes
+		# store the trip geometry
 		db.add_trip_match(
 			self.trip_id,
 			match['confidence'],
@@ -119,8 +122,6 @@ class trip_obj(object):
 			db.delete_trip_times(self.trip_id)
 		return
 
-	def match():
-		"""sdsds"""
 
 	def has_errors(self):
 		"""see if the speed segments indicate that there are any 

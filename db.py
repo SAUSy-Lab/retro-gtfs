@@ -389,6 +389,16 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 			)
 		)
 
+def flag_trip(trip_id,problem_description_string):
+	"""populate 'problem' field of trip table: something must 
+		have gone wrong"""
+	c = cursor()
+	c.execute(
+		"UPDATE nb_trips SET problem = %s WHERE trip_id = %s;",
+		(problem_description_string,trip_id,)
+	)
+
+
 #
 # functions for separate processing of trips
 #
