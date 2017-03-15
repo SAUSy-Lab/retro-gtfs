@@ -129,7 +129,7 @@ class trip(object):
 		if num_times > 1:
 			db.finish_trip(self.trip_id)
 		else:
-			db.delete_trip_times(self.trip_id)
+			db.delete_trip(self.trip_id)
 		return
 
 

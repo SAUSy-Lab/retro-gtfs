@@ -85,28 +85,21 @@ def trip_length(trip_id):
 		SELECT 
 			ST_Length(ST_MakeLine(location ORDER BY seq)) / 1000
 		FROM nb_vehicles 
-		WHERE trip_id = %s
+		WHERE trip_id = %s AND NOT ignore
 		GROUP BY trip_id;
 	""",(trip_id,))
 	(km,) = c.fetchone()
 	return km
 
 def delete_trip(trip_id):
-	"""delete a trip completely from the db"""
+	"""'delete' a trip completely from the db"""
 	c = cursor()
 	c.execute("""
-		DELETE FROM nb_vehicles WHERE trip_id = %s;
-		DELETE FROM nb_trips WHERE trip_id = %s;
+		UPDATE nb_vehicles SET ignore = TRUE WHERE trip_id = %s;
+		UPDATE nb_trips SET ignore = TRUE WHERE trip_id = %s;
 		DELETE FROM nb_stop_times WHERE trip_id = %s;
 	""",(trip_id,trip_id,trip_id) )
 	return
-
-def delete_trip_times(trip_id):
-	"""delete stop times for a given trip. Used to delete the trip 
-		from the output while keeping the geometry in nb_trips for 
-		error checking"""
-	c = cursor()
-	c.execute("DELETE FROM nb_stop_times WHERE trip_id = %s;",(trip_id,))
 
 def trip_segment_speeds(trip_id):
 	"get a list of the speeds (KMpH) on each inter-vehicle trip segment"
@@ -119,7 +112,9 @@ def trip_segment_speeds(trip_id):
 		FROM nb_vehicles AS v1
 		JOIN nb_vehicles AS v2
 			ON v1.seq = v2.seq-1
-		WHERE v1.trip_id = %s AND v2.trip_id = %s
+		WHERE 
+			v1.trip_id = %s AND v2.trip_id = %s AND 
+			NOT (v1.ignore OR v2.ignore) 
 		ORDER BY v1.seq;
 	""",(trip_id,trip_id) )
 	# divides km/h, returning a list
@@ -131,12 +126,12 @@ def trip_segment_speeds(trip_id):
 
 def delete_vehicle( trip_id, position ):
 	"""Remove a vehicle location record and shift the trip_sequence 
-		numbers accordingly"""
+		numbers accordingly. Actually just flag it off."""
 	c = cursor()
-	# delete the record of a single specified vehicle
-	# shift the sequence number down one for all vehicles past the deleted one
+	# flag the record of a single specified vehicle
+	# shift the sequence number down one for all vehicles past the flagged one
 	c.execute("""
-		DELETE FROM nb_vehicles
+		UPDATE nb_vehicles SET ignore = TRUE, seq = NULL
 		WHERE trip_id = %s AND seq = %s;
 		UPDATE nb_vehicles SET seq = seq - 1
 		WHERE trip_id = %s AND seq > %s;
@@ -152,7 +147,7 @@ def get_vehicles(trip_id):
 			lon, lat,
 			ROUND(report_time)::int AS t
 		FROM nb_vehicles 
-		WHERE trip_id = %s
+		WHERE trip_id = %s AND NOT ignore
 		ORDER BY report_time ASC;
 	""",(trip_id,))
 	# turn that data into correctly formatted lists
@@ -198,7 +193,7 @@ def get_waypoint_times(trip_id):
 		SELECT
 			report_time
 		FROM nb_vehicles
-		WHERE trip_id = %s
+		WHERE trip_id = %s AND NOT ignore
 		ORDER BY report_time ASC;
 	""",(trip_id,))
 	# assign the times to a dict keyed by sequence
@@ -398,6 +393,34 @@ def flag_trip(trip_id,problem_description_string):
 		(problem_description_string,trip_id,)
 	)
 
+
+def scrub_trip(trip_id):
+	"""Un-mark any flag fields and leave the DB record 
+		as though newly collected and unprocessed"""
+	c = cursor()
+	c.execute("""
+		UPDATE nb_trips SET 
+			match_confidence = NULL,
+			match_geom = NULL,
+			problem = NULL,
+			ignore = FALSE 
+		WHERE trip_id = %s;
+		UPDATE nb_vehicles SET
+			ignore = FALSE
+		WHERE trip_id = %s;
+		""",(trip_id,trip_id,)
+	)
+
+def sequence_vehicles(trip_id):
+	"""set the seq value for all un-ignored vehicle 
+		records by ordering timestamps"""
+	c = cursor()
+	c.execute("""
+		SELECT 1 -- TODO %s
+		""",(trip_id,)
+	)
+
+
 def get_trip(trip_id):
 	"""return the attributes of a stored trip necessary 
 		for the construction of a new trip object"""
@@ -410,9 +433,11 @@ def get_trip(trip_id):
 		""",(trip_id,)
 	)
 	(bid,did,rid,vid,) = c.fetchone()
-	c.execute(
-		"SELECT MAX(report_time) FROM nb_vehicles WHERE trip_id = %s",
-		(trip_id,)
+	c.execute("""
+		SELECT MAX(report_time) 
+		FROM nb_vehicles 
+		WHERE trip_id = %s AND NOT ignore
+		""",(trip_id,)
 	)
 	(last_seen,) = c.fetchone()
 	return (bid,did,rid,vid,last_seen)

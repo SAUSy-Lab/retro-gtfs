@@ -47,7 +47,8 @@ CREATE TABLE nb_vehicles (
 	report_time double precision, -- epoch time of report
 	lat numeric,
 	lon numeric,
-	location geometry(Point,26917)
+	location geometry(Point,26917),
+	ignore boolean DEFAULT FALSE -- ignore this vehicle during processing?
 );
 CREATE INDEX ON nb_vehicles (trip_id);
 
@@ -62,7 +63,8 @@ CREATE TABLE nb_trips (
 	match_confidence real,
 	match_geom geometry(LINESTRING,26917), -- map-matched route geometry
 	orig_geom  geometry(LINESTRING,26917),	-- geometry of points used in map matching
-	problem varchar DEFAULT NULL -- description of any problems that arise, 
+	problem varchar DEFAULT NULL,	-- description of any problems that arise
+	ignore boolean DEFAULT FALSE	-- ignore this vehicle during processing?
 );
 
 DROP TABLE IF EXISTS nb_stop_times;
