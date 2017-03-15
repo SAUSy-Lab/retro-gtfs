@@ -398,33 +398,26 @@ def flag_trip(trip_id,problem_description_string):
 		(problem_description_string,trip_id,)
 	)
 
+def get_trip(trip_id):
+	"""return the attributes of a stored trip necessary 
+		for the construction of a new trip object"""
+	c = cursor()
+	c.execute("""
+		SELECT 
+			block_id, direction_id, route_id, vehicle_id 
+		FROM nb_trips
+		WHERE trip_id = %s
+		""",(trip_id,)
+	)
+	(bid,did,rid,vid,) = c.fetchone()
+	c.execute(
+		"SELECT MAX(report_time) FROM nb_vehicles WHERE trip_id = %s",
+		(trip_id,)
+	)
+	(last_seen,) = c.fetchone()
+	return (bid,did,rid,vid,last_seen)
 
-#
-# functions for separate processing of trips
-#
 
-#def clear_stop_times_and_trips():
-#	"""clear the trips and stop times tables"""
-#	c = cursor("""
-#		TRUNCATE nb_stop_times;
-#		TRUNCATE nb_trips;
-#	""")
-
-#def sample_trips(num_trips,offset=0):
-#	"""return N trip_ids in a list"""
-#	c = cursor()
-#	c.execute("""
-#		SELECT 
-#			trip_id
-#		FROM nb_vehicles
-#		ORDER BY trip_id ASC
-#		LIMIT %s
-#		OFFSET %s;
-#	""",(num_trips,offset))
-#	trips = []
-#	for (tid,) in c.fetchall():
-#		trips.append(tid)
-#	return trips
 
 
 

@@ -12,9 +12,10 @@ print_lock = threading.Lock()
 # should we process trips (or simply store the vehicles)? default False
 doMatching = True if 'doMatching' in sys.argv else False
 
-class trip_obj(object):
+class trip(object):
 	"""The trip class provides all the methods needed for dealing
-		with one observed trip/track."""
+		with one observed trip/track. Classmethods provide two 
+		different ways of instantiating."""
 
 	def __init__(self,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
 		# set initial attributes
@@ -24,9 +25,8 @@ class trip_obj(object):
 		self.route_id = route_id			# int
 		self.vehicle_id = vehicle_id		# int
 		self.last_seen = last_seen			# last vehicle report (epoch time)
+		# initialize sequence
 		self.seq = 1							# sequence which increments at each report
-		# store these attributes as a trip in the db
-		db.insert_trip( trip_id, block_id, route_id, direction_id, vehicle_id )
 		# declare several vars for later in the matching process
 		self.speed_string = ""				# str
 		self.match_confidence = -1			# 0 - 1 real
@@ -35,11 +35,21 @@ class trip_obj(object):
 		self.segment_speeds = []			# reported speeds of all segments
 		self.waypoints = []					# points on the finallized trip only
 
+	@classmethod
+	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
+		"""create wholly new trip object, providing all paremeters"""
+		# store instance in the DB
+		db.insert_trip( trip_id, block_id, route_id, direction_id, vehicle_id )
+		return clss(trip_id,block_id,direction_id,route_id,vehicle_id,last_seen)
+
+	@classmethod
+	def fromDB(clss,trip_id):
+		"""construct a trip object from an existing record in the database"""
+		(bid,did,rid,vid,last_seen) = db.get_trip(trip_id)
+		return clss(trip_id,bid,did,rid,vid,last_seen)
+
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
-		# see if we have enough data to actually do anything with the trip
-		if self.seq < 5:
-			return db.delete_trip(self.trip_id)
 		# populate the geometry field
 		db.update_vehicle_geoms(self.trip_id)
 		if db.trip_length(self.trip_id) < 0.8: # 0.8km

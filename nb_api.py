@@ -2,7 +2,7 @@
 
 import requests, time, db
 import xml.etree.ElementTree as ET
-from trip import trip_obj
+from trip import trip
 import threading
 from os import remove, path
 from conf import conf # configuration
@@ -75,7 +75,7 @@ def get_new_vehicles():
 			try: # have we seen this vehicle recently?
 				fleet[vid]
 			except: # haven't seen it! create a new trip
-				fleet[vid] = trip_obj(next_trip_id,next_bid,did,rid,vid,last_seen)
+				fleet[vid] = trip.new(next_trip_id,next_bid,did,rid,vid,last_seen)
 				# increment the trip and block counters
 				next_trip_id += 1
 				next_bid += 1
@@ -90,7 +90,7 @@ def get_new_vehicles():
 				# this trip is ending
 				ending_trips.append( fleet[vid] )
 				# create the new trip in it's place
-				fleet[vid] = trip_obj(next_trip_id,last_bid,did,rid,vid,last_seen)
+				fleet[vid] = trip.new(next_trip_id,last_bid,did,rid,vid,last_seen)
 				# increment the trip counter
 				next_trip_id += 1
 				# store the vehicle record
@@ -118,11 +118,11 @@ def get_new_vehicles():
 	db.copy_vehicles(filename)
 	remove(filename)
 	# process the trips that are ending
-	for trip in ending_trips:
+	for some_trip in ending_trips:
 		# start each in it's own thread
-		t = threading.Thread(target=trip.process)
-		t.setDaemon(True)
-		t.start()
+		thread = threading.Thread(target=some_trip.process)
+		thread.setDaemon(True)
+		thread.start()
 
 def fetch_route(route_id):
 	"""function for requesting and storing all relevant information 
