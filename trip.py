@@ -89,9 +89,9 @@ class trip(object):
 		)
 		# is the match good enough to proceed with?
 		if match['confidence'] < 0.5:
-			print '\t\t',self.trip_id,match['confidence'],'is too low'
+			print '\t',match['confidence'],', is too low'
 		else:
-			print '\t\t',self.trip_id,match['confidence']
+			print '\t',match['confidence']
 		# get the times for the waypoints from the vehicle locations
 		times = db.get_waypoint_times(self.trip_id)
 		# compare to the corresponding points on the matched line 
