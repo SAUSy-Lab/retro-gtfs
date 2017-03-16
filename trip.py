@@ -5,7 +5,6 @@ import re, db, json
 import map_api
 from numpy import mean
 import threading
-import sys
 
 print_lock = threading.Lock()
 
@@ -65,6 +64,7 @@ class trip(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
+		# trip is clean, so begin matching
 		self.match()
 		
 

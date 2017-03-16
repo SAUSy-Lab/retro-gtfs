@@ -6,6 +6,10 @@ from trip import trip
 import threading
 from os import remove, path
 from conf import conf # configuration
+import sys
+
+# should we process trips (or simply store the vehicles)? default False
+doMatching = True if 'doMatching' in sys.argv else False
 
 # should we process trips (or simply store the vehicles)? default False
 doMatching = True if 'doMatching' in sys.argv else False
@@ -120,7 +124,7 @@ def get_new_vehicles():
 	f.close()
 	db.copy_vehicles(filename)
 	remove(filename)
-	# process the trips that are ending
+	# process the trips that are ending?
 	if doMatching:
 		for some_trip in ending_trips:
 			# start each in it's own thread
