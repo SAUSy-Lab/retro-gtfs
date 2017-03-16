@@ -416,8 +416,19 @@ def sequence_vehicles(trip_id):
 		records by ordering timestamps"""
 	c = cursor()
 	c.execute("""
-		SELECT 1 -- TODO %s
-		""",(trip_id,)
+		WITH new_order AS (
+			SELECT 
+				uid,
+				row_number() OVER (ORDER BY report_time ASC) AS row_number
+			FROM nb_vehicles 
+			WHERE trip_id = %s AND NOT ignore
+		)
+		UPDATE nb_vehicles SET seq = row_number
+		FROM new_order 
+		WHERE 
+			new_order.uid = nb_vehicles.uid AND 
+			trip_id = %s -- this little redundant bit makes the query much faster
+		""",(trip_id,trip_id,)
 	)
 
 

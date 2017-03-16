@@ -42,8 +42,9 @@ CREATE INDEX ON nb_directions (direction_id);
 
 DROP TABLE IF EXISTS nb_vehicles;
 CREATE TABLE nb_vehicles (
+	uid serial PRIMARY KEY, -- bigserial if more than ~2B records needed
 	trip_id integer,
-	seq integer, -- sequence in the trip reports
+	seq smallint, -- sequence in the trip reports
 	report_time double precision, -- epoch time of report
 	lat numeric,
 	lon numeric,
