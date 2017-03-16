@@ -393,7 +393,7 @@ def flag_trip(trip_id,problem_description_string):
 		have gone wrong"""
 	c = cursor()
 	c.execute(
-		"UPDATE nb_trips SET problem = %s WHERE trip_id = %s;",
+		"UPDATE nb_trips SET problem = problem || %s WHERE trip_id = %s;",
 		(problem_description_string,trip_id,)
 	)
 
@@ -406,7 +406,7 @@ def scrub_trip(trip_id):
 		UPDATE nb_trips SET 
 			match_confidence = NULL,
 			match_geom = NULL,
-			problem = NULL,
+			problem = '',
 			ignore = FALSE 
 		WHERE trip_id = %s;
 		UPDATE nb_vehicles SET
