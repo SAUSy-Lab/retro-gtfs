@@ -5,12 +5,8 @@ import re, db, json
 import map_api
 from numpy import mean
 import threading
-import sys
 
 print_lock = threading.Lock()
-
-# should we process trips (or simply store the vehicles)? default False
-doMatching = True if 'doMatching' in sys.argv else False
 
 class trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -64,8 +60,8 @@ class trip(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
-		if doMatching:
-			self.match()
+		# trip is clean, so begin matching
+		self.match()
 		
 
 	def match(self):

@@ -6,6 +6,10 @@ from trip import trip
 import threading
 from os import remove, path
 from conf import conf # configuration
+import sys
+
+# should we process trips (or simply store the vehicles)? default False
+doMatching = True if 'doMatching' in sys.argv else False
 
 # GLOBALS
 fleet = {} 			# operating vehicles in the ( fleet vid -> trip_obj )
@@ -117,12 +121,13 @@ def get_new_vehicles():
 	f.close()
 	db.copy_vehicles(filename)
 	remove(filename)
-	# process the trips that are ending
-	for some_trip in ending_trips:
-		# start each in it's own thread
-		thread = threading.Thread(target=some_trip.process)
-		thread.setDaemon(True)
-		thread.start()
+	# process the trips that are ending?
+	if doMatching:
+		for some_trip in ending_trips:
+			# start each in it's own thread
+			thread = threading.Thread(target=some_trip.process)
+			thread.setDaemon(True)
+			thread.start()
 
 def fetch_route(route_id):
 	"""function for requesting and storing all relevant information 
