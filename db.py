@@ -88,8 +88,12 @@ def trip_length(trip_id):
 		WHERE trip_id = %s AND NOT ignore
 		GROUP BY trip_id;
 	""",(trip_id,))
-	(km,) = c.fetchone()
-	return km
+	if c.rowcount == 1:
+		(km,) = c.fetchone()
+		return km
+	else: 
+		print 'trip_length() error'
+		return 0
 
 def delete_trip(trip_id):
 	"""'delete' a trip completely from the db"""
@@ -453,9 +457,18 @@ def get_trip(trip_id):
 	(last_seen,) = c.fetchone()
 	return (bid,did,rid,vid,last_seen)
 
-
-
-
+def get_trip_ids(min_id,max_id):
+	"""return a list of all trip ids in the specified range"""
+	c = cursor()
+	c.execute("""
+		SELECT trip_id 
+		FROM nb_trips 
+		WHERE trip_id 
+		BETWEEN %s AND %s 
+		ORDER BY trip_id
+		""",(min_id,max_id,)
+	)
+	return [ result for (result,) in c.fetchall() ]
 
 
 

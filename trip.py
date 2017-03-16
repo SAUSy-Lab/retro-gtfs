@@ -9,9 +9,6 @@ import sys
 
 print_lock = threading.Lock()
 
-# should we process trips (or simply store the vehicles)? default False
-doMatching = True if 'doMatching' in sys.argv else False
-
 class trip(object):
 	"""The trip class provides all the methods needed for dealing
 		with one observed trip/track. Classmethods provide two 
@@ -50,6 +47,10 @@ class trip(object):
 
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
+		# TODO these things are already being done elsewhere. 
+		# TODO remove them from other places so they can be done here instead
+		db.scrub_trip(self.trip_id)
+		db.sequence_vehicles(self.trip_id)
 		# populate the geometry field
 		db.update_vehicle_geoms(self.trip_id)
 		if db.trip_length(self.trip_id) < 0.8: # 0.8km
@@ -64,8 +65,7 @@ class trip(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
-		if doMatching:
-			self.match()
+		self.match()
 		
 
 	def match(self):

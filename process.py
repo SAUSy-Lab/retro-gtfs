@@ -8,26 +8,49 @@ import db
 from time import sleep
 from trip import trip
 
-trip_id = raw_input('trip_id to process--> ')
+# let mode be one of ('single','range?')
+mode = raw_input('Processing mode--> ')
 
-# create a trip object
-this_trip = trip.fromDB(trip_id)
+# single mode enters one trip at a time and stops when 
+# a non-integer is entered
+if mode == 'single':
+	trip_id = raw_input('trip_id to process--> ')
+	while trip_id.isdigit():
+		# create a trip object
+		this_trip = trip.fromDB(trip_id)
+		# get the DB (back) to a fresh state
+		db.scrub_trip(trip_id)
+		db.sequence_vehicles(trip_id)
+		# process
+		this_trip.process()
+		trip_id = raw_input('trip_id to process--> ')
+# 'range' mode does all valid ids in the given range
+elif mode == 'range':
+	id_range = raw_input('trip_id range as start:end --> ')
+	id_range = id_range.split(':')
+	# get a list of trip id's in the range
+	trip_ids = db.get_trip_ids(id_range[0],id_range[1])
+	print len(trip_ids),'trips in that range'
+	# how many threads to use?
+	max_threads = int(raw_input('max simultaneous threads--> '))
+	# start looping over trips
+	while len(trip_ids) > 0:
+		if threading.active_count() < max_threads + 1:
+			tid = trip_ids.pop()
+			print tid
+			some_trip = trip.fromDB(tid)
+			thread = threading.Thread(target=some_trip.process)
+			thread.start()
+		else:
+			print 'sleeping..'
+			sleep(0.3)	
 
-db.scrub_trip(trip_id)
-db.sequence_vehicles(trip_id)
+else:
+	print 'invalid entry mode given' 
 
-this_trip.process()
 
-#for route_id in routes:
-#	t = threading.Thread(target=fetch_route,args=(route_id,))
-#	t.start()
-#	if threading.active_count() >= 20:
-#		sleep(3)
-#	sleep(10)
 
-## call the big function. This takes longer to run the first time, 
-#get_new_vehicles()
 
-## so wait a bit longer than usual to call the timer function 10secs later
-#threading.Timer( 10, time_loop ).start()
-## then it calls itself every N secs
+
+
+
