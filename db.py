@@ -470,5 +470,16 @@ def get_trip_ids(min_id,max_id):
 	)
 	return [ result for (result,) in c.fetchall() ]
 
+def trip_exists(trip_id):
+	"""check whether a trip exists in the database, 
+		returning boolean"""
+	c = cursor()
+	c.execute("""
+		SELECT EXISTS (SELECT * FROM nb_trips WHERE trip_id = %s)
+		""",(trip_id,)
+	)
+	(existence,) = c.fetchone()
+	return existence
+
 
 

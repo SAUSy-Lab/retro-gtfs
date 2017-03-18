@@ -9,21 +9,26 @@ from time import sleep
 from trip import trip
 
 # let mode be one of ('single','range?')
-mode = raw_input('Processing mode--> ')
+mode = raw_input('Processing mode (single or range) --> ')
 
 # single mode enters one trip at a time and stops when 
 # a non-integer is entered
 if mode == 'single':
 	trip_id = raw_input('trip_id to process--> ')
 	while trip_id.isdigit():
-		# create a trip object
-		this_trip = trip.fromDB(trip_id)
-		# get the DB (back) to a fresh state
-		db.scrub_trip(trip_id)
-		db.sequence_vehicles(trip_id)
-		# process
-		this_trip.process()
+		if db.trip_exists(trip_id):
+			# create a trip object
+			this_trip = trip.fromDB(trip_id)
+			# get the DB (back) to a fresh state
+			db.scrub_trip(trip_id)
+			db.sequence_vehicles(trip_id)
+			# process
+			this_trip.process()
+		else:
+			print 'no such trip'
+		# ask for another trip and continue
 		trip_id = raw_input('trip_id to process--> ')
+
 # 'range' mode does all valid ids in the given range
 elif mode == 'range':
 	id_range = raw_input('trip_id range as start:end --> ')

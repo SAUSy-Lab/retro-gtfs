@@ -1,5 +1,5 @@
 ﻿/*
-create tables necessary for NextBus drivn realtime GTFS project
+create tables necessary for NextBus driven realtime GTFS project
 */
 
 /*
@@ -67,6 +67,7 @@ CREATE TABLE nb_trips (
 	problem varchar DEFAULT '',	-- description of any problems that arise
 	ignore boolean DEFAULT FALSE	-- ignore this vehicle during processing?
 );
+CREATE INDEX ON nb_trips (trip_id);
 
 DROP TABLE IF EXISTS nb_stop_times;
 CREATE TABLE nb_stop_times(
