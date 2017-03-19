@@ -48,8 +48,7 @@ elif mode == 'range':
 			thread.daemon = True
 			thread.start()
 		else:
-			print 'sleeping..'
-			sleep(1)
+			sleep(0.2)
 
 else:
 	print 'invalid entry mode given' 
