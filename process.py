@@ -42,6 +42,7 @@ elif mode == 'range':
 	while len(trip_ids) > 0:
 		if threading.active_count() < max_threads + 1:
 			tid = trip_ids.pop()
+			print tid
 			print str(len(trip_ids)),' trips remaining'
 			some_trip = trip.fromDB(tid)
 			thread = threading.Thread(target=some_trip.process)
@@ -49,6 +50,11 @@ elif mode == 'range':
 			thread.start()
 		else:
 			sleep(0.2)
+	# now wait for all daemon threads to end before letting 
+	# the main thread die
+	while threading.active_count() > 1:
+		sleep(0.2)
+	print 'COMPLETED!'
 
 else:
 	print 'invalid entry mode given' 
