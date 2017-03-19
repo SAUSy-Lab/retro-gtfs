@@ -95,15 +95,33 @@ def trip_length(trip_id):
 		print 'trip_length() error'
 		return 0
 
-def delete_trip(trip_id):
-	"""'delete' a trip completely from the db"""
+
+def delete_trip(trip_id,reason=None):
+	"""mask for ignore_trip"""
+	ignore_trip(trip_id,reason)
+
+def ignore_trip(trip_id,reason=None):
+	"""mark a trip to be ignored"""
 	c = cursor()
 	c.execute("""
 		UPDATE nb_vehicles SET ignore = TRUE WHERE trip_id = %s;
 		UPDATE nb_trips SET ignore = TRUE WHERE trip_id = %s;
 		DELETE FROM nb_stop_times WHERE trip_id = %s;
 	""",(trip_id,trip_id,trip_id) )
+	if reason:
+		flag_trip(trip_id,reason)
 	return
+
+
+def flag_trip(trip_id,problem_description_string):
+	"""populate 'problem' field of trip table: something must 
+		have gone wrong"""
+	c = cursor()
+	c.execute(
+		"UPDATE nb_trips SET problem = problem || %s WHERE trip_id = %s;",
+		(problem_description_string,trip_id,)
+	)
+
 
 def trip_segment_speeds(trip_id):
 	"get a list of the speeds (KMpH) on each inter-vehicle trip segment"
@@ -128,6 +146,7 @@ def trip_segment_speeds(trip_id):
 		print 'trip '+str(trip_id)+'produced an error in trip_segment_speeds()'
 		return []
 
+
 def delete_vehicle( trip_id, position ):
 	"""Remove a vehicle location record and shift the trip_sequence 
 		numbers accordingly. Actually just flag it off."""
@@ -140,6 +159,7 @@ def delete_vehicle( trip_id, position ):
 		UPDATE nb_vehicles SET seq = seq - 1
 		WHERE trip_id = %s AND seq > %s;
 	""",( trip_id ,position, trip_id, position ))
+
 
 def get_vehicles(trip_id):
 	"""gets data on the ordered vehicles for a trip.
@@ -164,6 +184,7 @@ def get_vehicles(trip_id):
 		times.append(time)
 	return (lons,lats,times)
 
+
 def add_trip_match(trip_id,confidence,geometry_match):
 	"""update the trip record with it's matched geometry"""
 	c = cursor()
@@ -177,6 +198,7 @@ def add_trip_match(trip_id,confidence,geometry_match):
 		""",( confidence, geometry_match, trip_id)
 	)
 
+
 def insert_trip(tid,bid,rid,did,vid):
 	"""store the trip in the database"""
 	c = cursor()
@@ -189,6 +211,7 @@ def insert_trip(tid,bid,rid,did,vid):
 	""",
 		( tid, bid, rid, did, vid)
 	)
+
 
 def get_waypoint_times(trip_id):
 	"""get the times for the ordered vehicle locations"""
@@ -205,6 +228,7 @@ def get_waypoint_times(trip_id):
 	for (time,) in c.fetchall():
 		result.append(time)
 	return result
+
 
 def get_stops(trip_id,direction_id):
 	"""given the direction id, get the ordered list of stops
@@ -242,6 +266,7 @@ def get_stops(trip_id,direction_id):
 		}
 	return result
 
+
 def locate_trip_point(trip_id,lon,lat):
 	"""use ST_LineLocatePoint to locate a point on a trip geometry.
 		This is always a point matched to the trip, so should be
@@ -259,6 +284,7 @@ def locate_trip_point(trip_id,lon,lat):
 	(result,) = c.fetchone()
 	return result
 
+
 def store_stop_time(trip_id,stop_id,time):
 	"""store the time and trip of a stop. sequence and service-day-relative 
 		arrival/departure times will be set later."""
@@ -267,6 +293,7 @@ def store_stop_time(trip_id,stop_id,time):
 		INSERT INTO nb_stop_times (trip_id,stop_id,etime) 
 		VALUES (%s,%s,%s);
 	""",(trip_id,stop_id,time))
+
 
 def finish_trip(trip_id):
 	"""stop times are stored, do the rest and be done:
@@ -310,6 +337,7 @@ def finish_trip(trip_id):
 		WHERE trip_id = %s;
 	""",(day_start,day_start,trip_id))
 
+
 def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 	"""we have received a report of a stop from the routeConfig
 		data. Is this a new stop? Have we already heard of it?
@@ -346,6 +374,7 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 			lon,lat,
 			lon,lat #,time
 		) )
+
 
 def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 	"""we have recieved a report of a route direction from the 
@@ -388,15 +417,6 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 			)
 		)
 
-def flag_trip(trip_id,problem_description_string):
-	"""populate 'problem' field of trip table: something must 
-		have gone wrong"""
-	c = cursor()
-	c.execute(
-		"UPDATE nb_trips SET problem = problem || %s WHERE trip_id = %s;",
-		(problem_description_string,trip_id,)
-	)
-
 
 def scrub_trip(trip_id):
 	"""Un-mark any flag fields and leave the DB record 
@@ -414,6 +434,7 @@ def scrub_trip(trip_id):
 		WHERE trip_id = %s;
 		""",(trip_id,trip_id,)
 	)
+
 
 def sequence_vehicles(trip_id):
 	"""set the seq value for all un-ignored vehicle 
@@ -457,6 +478,7 @@ def get_trip(trip_id):
 	(last_seen,) = c.fetchone()
 	return (bid,did,rid,vid,last_seen)
 
+
 def get_trip_ids(min_id,max_id):
 	"""return a list of all trip ids in the specified range"""
 	c = cursor()
@@ -470,6 +492,7 @@ def get_trip_ids(min_id,max_id):
 	)
 	return [ result for (result,) in c.fetchall() ]
 
+
 def trip_exists(trip_id):
 	"""check whether a trip exists in the database, 
 		returning boolean"""
@@ -480,6 +503,4 @@ def trip_exists(trip_id):
 	)
 	(existence,) = c.fetchone()
 	return existence
-
-
 

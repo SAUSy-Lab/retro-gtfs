@@ -53,13 +53,13 @@ class trip(object):
 		# populate the geometry field
 		db.update_vehicle_geoms(self.trip_id)
 		if db.trip_length(self.trip_id) < 0.8: # 0.8km
-			return db.delete_trip(self.trip_id)
+			return db.ignore_trip(self.trip_id,'too short')
 		# check for errors and attempt to correct them
 		self.segment_speeds = db.trip_segment_speeds(self.trip_id)
 		while self.has_errors():
 			# make sure it's still long enough to bother with
 			if len(self.speed_string) < 3:
-				return db.delete_trip(self.trip_id)
+				return db.ignore_trip(self.trip_id,'error processing made too short')
 			# still long enough to try fixing
 			self.fix_error()
 			# update the segment speeds for the next iteration
@@ -129,7 +129,7 @@ class trip(object):
 		if num_times > 1:
 			db.finish_trip(self.trip_id)
 		else:
-			db.delete_trip(self.trip_id)
+			db.ignore_trip(self.trip_id,'only one stop time estimated')
 		return
 
 
@@ -185,8 +185,7 @@ class trip(object):
 		# see if you can't do a better job of handling xx's near the middle
 		m = re.search('x',self.speed_string)
 		if m:
-			print self.trip_id,'has a problem with Xs'
-			db.delete_trip(self.trip_id)
+			db.ignore_trip(self.trip_id,"XX's in the string not handled")
 
 
 	def interpolate_time(self,stop_id):

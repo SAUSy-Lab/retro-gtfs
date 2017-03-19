@@ -42,7 +42,6 @@ elif mode == 'range':
 	while len(trip_ids) > 0:
 		if threading.active_count() < max_threads + 1:
 			tid = trip_ids.pop()
-			print tid
 			print str(len(trip_ids)),' trips remaining'
 			some_trip = trip.fromDB(tid)
 			thread = threading.Thread(target=some_trip.process)
