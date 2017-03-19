@@ -27,7 +27,7 @@ if mode == 'single':
 		else:
 			print 'no such trip'
 		# ask for another trip and continue
-		trip_id = raw_input('trip_id to process--> ')
+		trip_id = raw_input('trip_id to process --> ')
 
 # 'range' mode does all valid ids in the given range
 elif mode == 'range':
@@ -37,18 +37,19 @@ elif mode == 'range':
 	trip_ids = db.get_trip_ids(id_range[0],id_range[1])
 	print len(trip_ids),'trips in that range'
 	# how many threads to use?
-	max_threads = int(raw_input('max simultaneous threads--> '))
+	max_threads = int(raw_input('max threads --> '))
 	# start looping over trips
 	while len(trip_ids) > 0:
 		if threading.active_count() < max_threads + 1:
 			tid = trip_ids.pop()
-			print tid
+			print str(len(trip_ids)),' trips remaining'
 			some_trip = trip.fromDB(tid)
 			thread = threading.Thread(target=some_trip.process)
+			thread.daemon = True
 			thread.start()
 		else:
 			print 'sleeping..'
-			sleep(0.3)	
+			sleep(1)
 
 else:
 	print 'invalid entry mode given' 

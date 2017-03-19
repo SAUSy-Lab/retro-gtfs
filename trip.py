@@ -150,8 +150,9 @@ class trip(object):
 			return False
 
 	def fix_error(self):
-		"""remove redundant points and fix obvious positional errors using RegEx
-			fixes one error each time it's called, the first it finds"""
+		"""remove redundant points and fix obvious positional 
+			errors using RegEx. Fixes one error each time it's 
+			called: the first it finds"""
 		# check for leading o's (stationary start)
 		m = re.search('^oo*',self.speed_string)
 		if m: # remove the first vehicle
@@ -182,7 +183,7 @@ class trip(object):
 			return
 		# TODO this is a hack that deletes problems
 		# see if you can't do a better job of handling xx's near the middle
-		m = re.search('xx',self.speed_string)
+		m = re.search('x',self.speed_string)
 		if m:
 			print self.trip_id,'has a problem with Xs'
 			db.delete_trip(self.trip_id)
