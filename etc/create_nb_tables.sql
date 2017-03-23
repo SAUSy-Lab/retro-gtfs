@@ -63,7 +63,8 @@ CREATE TABLE nb_trips (
 	block_id integer,
 	match_confidence real,
 	match_geom geometry(LINESTRING,26917), -- map-matched route geometry
-	orig_geom  geometry(LINESTRING,26917),	-- geometry of points used in map matching
+	orig_geom  geometry(LINESTRING,26917),	-- geometry of all points
+	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching
 	problem varchar DEFAULT '',	-- description of any problems that arise
 	ignore boolean DEFAULT FALSE	-- ignore this vehicle during processing?
 );

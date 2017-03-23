@@ -267,6 +267,38 @@ def get_stops(trip_id,direction_id):
 	return result
 
 
+def set_trip_orig_geom(trip_id):
+	"""simply take the vehicle records for this trip 
+		and store them as a line geometry with the trip 
+		record. ALL vehicles go in this line"""
+	c = cursor()
+	c.execute("""
+		UPDATE nb_trips SET orig_geom = (
+			SELECT ST_MakeLine(location) 
+			FROM nb_vehicles 
+			WHERE trip_id = %s
+		)
+		WHERE trip_id = %s;
+		""",(trip_id,trip_id,)
+	)
+
+
+def set_trip_clean_geom(trip_id):
+	"""Store the UN-IGNORED vehicle records for this trip 
+		as a line geometry with the trip record."""
+	c = cursor()
+	c.execute("""
+		UPDATE nb_trips SET clean_geom = (
+			SELECT ST_MakeLine(location) 
+			FROM nb_vehicles 
+			WHERE trip_id = %s 
+				AND NOT ignore
+		)
+		WHERE trip_id = %s;
+		""",(trip_id,trip_id,)
+	)
+
+
 def locate_trip_point(trip_id,lon,lat):
 	"""use ST_LineLocatePoint to locate a point on a trip geometry.
 		This is always a point matched to the trip, so should be
@@ -427,6 +459,8 @@ def scrub_trip(trip_id):
 		UPDATE nb_trips SET 
 			match_confidence = NULL,
 			match_geom = NULL,
+			orig_geom = NULL,
+			clean_geom = NULL,
 			problem = '',
 			ignore = FALSE 
 		WHERE trip_id = %s;

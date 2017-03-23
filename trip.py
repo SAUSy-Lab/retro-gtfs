@@ -48,8 +48,9 @@ class trip(object):
 		"""A trip has just ended. What do we do with it?"""
 		db.scrub_trip(self.trip_id)
 		db.sequence_vehicles(self.trip_id)
-		# populate the geometry field
+		# populate the geometry fields
 		db.update_vehicle_geoms(self.trip_id)
+		db.set_trip_orig_geom(self.trip_id)
 		if db.trip_length(self.trip_id) < 0.8: # 0.8km
 			return db.ignore_trip(self.trip_id,'too short')
 		# check for errors and attempt to correct them
@@ -62,7 +63,8 @@ class trip(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
-		# trip is clean, so begin matching
+		# trip is clean, so store the cleaned line and begin matching
+		db.set_trip_clean_geom(self.trip_id)
 		self.match()
 		
 
