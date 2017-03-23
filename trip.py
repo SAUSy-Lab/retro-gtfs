@@ -46,8 +46,6 @@ class trip(object):
 
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
-		# TODO these things are already being done elsewhere. 
-		# TODO remove them from other places so they can be done here instead
 		db.scrub_trip(self.trip_id)
 		db.sequence_vehicles(self.trip_id)
 		# populate the geometry field

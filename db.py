@@ -423,16 +423,23 @@ def scrub_trip(trip_id):
 		as though newly collected and unprocessed"""
 	c = cursor()
 	c.execute("""
+		-- Trips table
 		UPDATE nb_trips SET 
 			match_confidence = NULL,
 			match_geom = NULL,
 			problem = '',
 			ignore = FALSE 
 		WHERE trip_id = %s;
+
+		-- Vehicles table
 		UPDATE nb_vehicles SET
 			ignore = FALSE
 		WHERE trip_id = %s;
-		""",(trip_id,trip_id,)
+
+		-- Stop-Times table
+		DELETE FROM nb_stop_times 
+		WHERE trip_id = %s;
+		""",(trip_id,trip_id,trip_id,)
 	)
 
 
