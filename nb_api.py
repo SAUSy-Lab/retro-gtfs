@@ -11,9 +11,6 @@ import sys
 # should we process trips (or simply store the vehicles)? default False
 doMatching = True if 'doMatching' in sys.argv else False
 
-# should we process trips (or simply store the vehicles)? default False
-doMatching = True if 'doMatching' in sys.argv else False
-
 # GLOBALS
 fleet = {} 			# operating vehicles in the ( fleet vid -> trip_obj )
 next_trip_id = db.new_trip_id()	# next trip_id to be assigned 

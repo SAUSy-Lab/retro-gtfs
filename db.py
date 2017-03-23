@@ -274,7 +274,7 @@ def set_trip_orig_geom(trip_id):
 	c = cursor()
 	c.execute("""
 		UPDATE nb_trips SET orig_geom = (
-			SELECT ST_MakeLine(location) 
+			SELECT ST_MakeLine(location ORDER BY seq ASC)
 			FROM nb_vehicles 
 			WHERE trip_id = %s
 		)
@@ -289,7 +289,7 @@ def set_trip_clean_geom(trip_id):
 	c = cursor()
 	c.execute("""
 		UPDATE nb_trips SET clean_geom = (
-			SELECT ST_MakeLine(location) 
+			SELECT ST_MakeLine(location ORDER BY seq ASC) 
 			FROM nb_vehicles 
 			WHERE trip_id = %s 
 				AND NOT ignore
@@ -467,6 +467,7 @@ def scrub_trip(trip_id):
 
 		-- Vehicles table
 		UPDATE nb_vehicles SET
+			seq = NULL,
 			ignore = FALSE
 		WHERE trip_id = %s;
 
