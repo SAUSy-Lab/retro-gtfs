@@ -5,6 +5,7 @@ import re, db, json
 import map_api
 from numpy import mean
 import threading
+import random
 
 print_lock = threading.Lock()
 
@@ -181,11 +182,18 @@ class trip(object):
 			# report from between the o's ('-o|o-')
 			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
 			return
-		# TODO this is a hack that deletes problems
-		# see if you can't do a better job of handling xx's near the middle
-		m = re.search('x',self.speed_string)
+		# 'xx' in the middle, delete the point after the first x
+		m = re.search('.xxx*',self.speed_string)
 		if m:
-			db.ignore_trip(self.trip_id,"XX's in the string not handled")
+			# same strategy as above
+			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
+			return
+		# lone middle x
+		m = re.search('.x.',self.speed_string)
+		if m:
+			# delete a point either before or after a lone x
+			db.delete_vehicle( self.trip_id, m.span()[0]+1+random.randint(0,1) )
+			return
 
 
 	def interpolate_time(self,stop_id):
