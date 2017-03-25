@@ -529,7 +529,7 @@ def get_trip_ids(min_id,max_id):
 		FROM nb_trips 
 		WHERE trip_id 
 		BETWEEN %s AND %s 
-		ORDER BY trip_id
+		ORDER BY trip_id DESC
 		""",(min_id,max_id,)
 	)
 	return [ result for (result,) in c.fetchall() ]
