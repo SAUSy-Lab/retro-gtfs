@@ -4,6 +4,8 @@
 	TODO 
 	-- bring in from cloud: nb_stops, nb_stop_times, nb_trips
 */
+DROP TABLE IF EXISTS temp_ave_stop_waits;
+
 WITH trips AS (
 	SELECT trip_id 
 	FROM nb_trips
@@ -24,8 +26,11 @@ WITH trips AS (
 		ON oa1.seq = oa2.seq-1 AND oa1.stop_id = oa2.stop_id
 )
 SELECT 
-	stop_id,
+	headways.stop_id,
 	AVG(headway) AS avg_headway,
-	(AVG(headway)/2)*(1+VARIANCE(headway)/AVG(headway)^2) AS average_wait
-FROM headways
-GROUP BY stop_id
+	(AVG(headway)/2)*(1+VARIANCE(headway)/AVG(headway)^2) AS average_wait,
+	the_geom
+INTO temp_ave_stop_waits
+FROM headways JOIN nb_stops 
+	ON headways.stop_id = nb_stops.stop_id
+GROUP BY headways.stop_id, the_geom
