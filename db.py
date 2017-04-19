@@ -69,14 +69,14 @@ def copy_vehicles(filename):
 		COPY nb_vehicles (trip_id,seq,lon,lat,report_time) FROM %s CSV;
 	""",(filename,))
 
-def update_vehicle_geoms(trip_id):
-	"""make the location geometries from the lat/lon"""
-	c = cursor()
-	c.execute("""
-		UPDATE nb_vehicles SET 
-			location = ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917)
-		WHERE trip_id = %s; 
-	""",(trip_id,))
+#def update_vehicle_geoms(trip_id):
+#	"""make the location geometries from the lat/lon"""
+#	c = cursor()
+#	c.execute("""
+#		UPDATE nb_vehicles SET 
+#			location = ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917)
+#		WHERE trip_id = %s; 
+#	""",(trip_id,))
 
 def trip_length(trip_id):
 	"""return the length of the trip in KM"""
@@ -468,7 +468,6 @@ def scrub_trip(trip_id):
 
 		-- Vehicles table
 		UPDATE nb_vehicles SET
-			seq = NULL,
 			ignore = FALSE
 		WHERE trip_id = %s;
 
@@ -551,19 +550,20 @@ def trip_exists(trip_id):
 # BEYOND HERE ARE EXPERIMENTAL SHAPELY FUNCTIONS
 #####
 
-def shp_get_vehicles(trip_id):
+def get_vehicles(trip_id):
 	"""returns full projected vehicle linestring and times"""
 	c = cursor()
 	# get the trip geometry and timestamps
 	c.execute("""
 		SELECT
-			uid, location, lat, lon, report_time
+			uid, lat, lon, report_time,
+			ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917) AS geom
 		FROM nb_vehicles 
 		WHERE trip_id = %s
 		ORDER BY report_time ASC;
 	""",(trip_id,))
 	vehicles = []
-	for (uid,geom,lat,lon,time) in c.fetchall():
+	for (uid,lat,lon,time,geom) in c.fetchall():
 		vehicles.append({
 			'uid':	uid,
 			'geom':	geom,

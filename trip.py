@@ -7,8 +7,12 @@ from numpy import mean
 import threading
 import random
 # testing...
-import shapely.wkb
-from shapely.geometry import Point
+import shapely.wkb, shapely.ops
+from shapely.geometry import Point, asShape
+
+
+from conf import conf
+
 
 print_lock = threading.Lock()
 
@@ -31,7 +35,6 @@ class trip(object):
 		# declare several vars for later in the matching process
 		self.speed_string = ""				# str
 		self.match_confidence = -1			# 0 - 1 real
-		self.match_geometry = {}			# parsed geojson object
 		self.stops = {}						# not set until process()
 		self.segment_speeds = []			# reported speeds of all segments
 		self.waypoints = []					# points on the finallized trip only
@@ -40,6 +43,7 @@ class trip(object):
 		self.vehicles = []					# ordered vehicle records
 		self.ignored_vehicles = []			# discarded records
 		self.problems = []					# running list of issues
+		self.match_geom = None				# map-matched linestring 
 
 	@classmethod
 	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
@@ -57,13 +61,8 @@ class trip(object):
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
 		db.scrub_trip(self.trip_id)
-#		db.sequence_vehicles(self.trip_id)
-		db.update_vehicle_geoms(self.trip_id)
-
-		# TODO testing shapely...
-		
-		# get vehicles and make geometry objects
-		self.vehicles = db.shp_get_vehicles(self.trip_id)
+		# get vehicle records and make geometry objects
+		self.vehicles = db.get_vehicles(self.trip_id)
 		for v in self.vehicles:
 			v['geom'] = shapely.wkb.loads(v['geom'],hex=True)
 			v['ignore'] = False
@@ -106,43 +105,44 @@ class trip(object):
 	def match(self):
 		"""Match the trip to the road network, and do all the
 			things that follow therefrom."""
-		match = map_api.map_match(self.vehicles)
+		result = map_api.map_match(self.vehicles)
 		# flag results with multiple matches for now until you can 
 		# figure out exactly what is going wrong
-		if match['code'] != 'Ok':
+		if result['code'] != 'Ok':
 			return self.flag('match problem, code not "Ok"')
-		if len(match['matchings']) > 1:
+		if len(result['matchings']) > 1:
 			return self.flag('more than one match segment')
 		# get the matched points
-		tracepoints = match['tracepoints']
-		match = match['matchings'][0]
+		tracepoints = result['tracepoints']
+		# only handling the first result for now TODO fix that
+		match = result['matchings'][0]
+		self.match_confidence = match['confidence']
 		# store the trip geometry
+		self.match_geom = asShape(match['geometry'])
+		# and be sure to projejct it correctly...
+		self.match_geom = shapely.ops.transform( 
+			conf['projection'], 
+			self.match_geom
+		)
+
 		db.add_trip_match(
 			self.trip_id,
-			match['confidence'],
+			self.match_confidence,
 			json.dumps(match['geometry'])
 		)
-		# is the match good enough to proceed with?
-		if match['confidence'] < 0.5:
-			print '\t',match['confidence'],', is too low'
-		else:
-			print '\t',match['confidence']
+
 		# get the times for the waypoints from the vehicle locations
-		times = db.get_waypoint_times(self.trip_id)
 		# compare to the corresponding points on the matched line 
-		for point,time in zip(tracepoints,times):
+		for point,vehicle in zip(tracepoints,self.vehicles):
 			# these are the matched points of the input cordinates
 			try:
 				self.waypoints.append({
-					't':time,
-					'm':db.locate_trip_point(
-						self.trip_id,
-						point['location'][0],	# lon
-						point['location'][1]		# lat
-					)
+					't':vehicle['time'],
+					'm':self.match_geom.project( vehicle['geom'], normalized=True )
 				})
 			except:
 				print '\t\t\twaypoint fail'
+
 		# get the stops ( as a dict keyed by stop_id
 		# with keys {'s':sequence,'m':measure,'d':distance}
 		self.stops = db.get_stops(self.trip_id,self.direction_id)
@@ -161,6 +161,10 @@ class trip(object):
 					stop_time		# epoch time
 				)
 				num_times += 1
+
+		# report on match quality
+		print '\t',self.match_confidence
+
 		if num_times > 1:
 			db.finish_trip(self.trip_id)
 		else:
@@ -202,25 +206,21 @@ class trip(object):
 		m = re.search('^oo*',self.speed_string)
 		if m: # remove the first vehicle
 			self.ignore_vehicle(0)
-#			db.delete_vehicle( self.trip_id, 1 )
 			return
 		# check for trailing o's (stationary end)
 		m = re.search('oo*$',self.speed_string)
 		if m: # remove the last vehicle
 			self.ignore_vehicle( len(self.speed_string) )
-#			db.delete_vehicle( self.trip_id, len(self.speed_string)+1 )
 			return
 		# check for x near beginning, in first four segs
 		m = re.search('^.{0,3}x',self.speed_string)
 		if m: # remove the first vehicle
 			self.ignore_vehicle(0)
-#			db.delete_vehicle( self.trip_id, 1 )
 			return
 		# check for x near the end, in last four segs
 		m = re.search('x.{0,3}$',self.speed_string)
 		if m: # remove the last vehicle
 			self.ignore_vehicle(len(self.speed_string))
-#			db.delete_vehicle( self.trip_id, len(self.speed_string)+1 )
 			return
 		# check for two or more o's in the middle and take from after the first o
 		m = re.search('.ooo*.',self.speed_string)
@@ -229,14 +229,12 @@ class trip(object):
 			# so we need to add 2 to the start position to remove the vehicle 
 			# report from between the o's ('-o|o-')
 			self.ignore_vehicle(m.span()[0]+1)
-#			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
 			return
 		# 'xx' in the middle, delete the point after the first x
 		m = re.search('.xxx*',self.speed_string)
 		if m:
 			# same strategy as above
 			self.ignore_vehicle(m.span()[0]+1)
-#			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
 			return
 		# lone middle x
 		m = re.search('.x.',self.speed_string)
@@ -244,7 +242,6 @@ class trip(object):
 			# delete a point either before or after a lone x
 			i = m.span()[0]+1+random.randint(0,1)
 			self.ignore_vehicle(i-1)
-#			db.delete_vehicle( self.trip_id, i )
 			return
 
 
