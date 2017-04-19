@@ -6,6 +6,9 @@ import map_api
 from numpy import mean
 import threading
 import random
+# testing...
+import shapely.wkb
+from shapely.geometry import Point
 
 print_lock = threading.Lock()
 
@@ -15,6 +18,7 @@ class trip(object):
 		different ways of instantiating."""
 
 	def __init__(self,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
+		"""initialization method, only accessed by the @classmethod's below"""
 		# set initial attributes
 		self.trip_id = trip_id				# int
 		self.block_id = block_id			# int
@@ -31,6 +35,9 @@ class trip(object):
 		self.stops = {}						# not set until process()
 		self.segment_speeds = []			# reported speeds of all segments
 		self.waypoints = []					# points on the finallized trip only
+		# TODO testing...
+		self.length = 0						# length in meters of current string
+		self.vehicles = []					# ordered vehicle records
 
 	@classmethod
 	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
@@ -51,11 +58,20 @@ class trip(object):
 		db.sequence_vehicles(self.trip_id)
 		# populate the geometry fields
 		db.update_vehicle_geoms(self.trip_id)
-		db.set_trip_orig_geom(self.trip_id)
-		if db.trip_length(self.trip_id) < 0.8: # 0.8km
+
+		# TODO testing shapely...
+		
+		# get vehicles and make shapely objects
+		self.vehicles = db.shp_get_vehicles(self.trip_id)
+		for v in self.vehicles:
+			v['geom'] = shapely.wkb.loads(v['geom'],hex=True)
+			v['ignore'] = False
+		# calculate vector of segment speeds
+		self.segment_speeds = self.get_segment_speeds()
+
+		if self.length < 800: # meters
 			return db.ignore_trip(self.trip_id,'too short')
 		# check for errors and attempt to correct them
-		self.segment_speeds = db.trip_segment_speeds(self.trip_id)
 		while self.has_errors():
 			# make sure it's still long enough to bother with
 			if len(self.speed_string) < 3:
@@ -67,7 +83,25 @@ class trip(object):
 		# trip is clean, so store the cleaned line and begin matching
 		db.set_trip_clean_geom(self.trip_id)
 		self.match()
-		
+
+	def get_segment_speeds(self):
+		"""return speeds (kmph) on the segments between vehicles
+			non-ignored only and using shapely"""
+		# iterate over segments (i-1)
+		dists = []
+		times = []
+		for i in range(1,len(self.vehicles)):
+			v1 = self.vehicles[i-1]
+			v2 = self.vehicles[i]
+			# distance in kilometers
+			dists.append( v1['geom'].distance(v2['geom'])/1000 )
+			# time in hours
+			times.append( (v2['time']-v1['time'])/3600 )
+		# set the total distance
+		self.length = sum(dists)
+		# calculate speeds
+		return [ d/t for d,t in zip(dists,times) ]
+
 
 	def match(self):
 		"""Match the trip to the road network, and do all the

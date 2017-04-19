@@ -184,7 +184,6 @@ def get_vehicles(trip_id):
 		times.append(time)
 	return (lons,lats,times)
 
-
 def add_trip_match(trip_id,confidence,geometry_match):
 	"""update the trip record with it's matched geometry"""
 	c = cursor()
@@ -546,3 +545,59 @@ def trip_exists(trip_id):
 	(existence,) = c.fetchone()
 	return existence
 
+#####
+# BEYOND HERE ARE EXPERIMENTAL SHAPELY FUNCTIONS
+#####
+
+def shp_get_vehicles(trip_id):
+	"""returns full projected vehicle linestring and times"""
+	c = cursor()
+	# get the trip geometry and timestamps
+	c.execute("""
+		SELECT
+			uid, location, report_time
+		FROM nb_vehicles 
+		WHERE trip_id = %s
+		ORDER BY report_time ASC;
+	""",(trip_id,))
+	vehicles = []
+	for (uid,geom,time) in c.fetchall():
+		vehicles.append({
+			'uid':	uid,
+			'geom':	geom,
+			'time':	time
+		})
+	return vehicles
+
+
+
+
+#def get_stop_data(direction_id):
+#	"""get simple data on attributes and locations of the stops.
+#		return as an array of objects"""
+#	c = cursor()
+#	c.execute("""
+#		WITH sub AS (
+#			SELECT
+#				unnest(stops) AS stop_id
+#			FROM nb_directions 
+#			WHERE
+#				direction_id = '8_0_8' AND
+#				report_time = (
+#					SELECT MAX(report_time) -- most recent 
+#					FROM nb_directions 
+#					WHERE direction_id = '8_0_8'
+#				)
+#		)
+#		SELECT 
+#			sub.stop_id,
+#			nb_stops.the_geom
+#		FROM sub JOIN nb_stops
+#			ON sub.stop_id = nb_stops.stop_id;
+#	""",(direction_id,direction_id))
+#	result = {}
+#	for (stop_id,geom) in c.fetchall():
+#		result[stop_id] = {
+#			'geom':geom
+#		}
+#	return result
