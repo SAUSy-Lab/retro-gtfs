@@ -248,24 +248,18 @@ def get_stops(trip_id,direction_id):
 				)
 		)
 		SELECT 
-			sub.stop_id,
-			ST_LineLocatePoint(nb_trips.match_geom,nb_stops.the_geom) AS m,
-			nb_trips.match_geom <-> nb_stops.the_geom AS dist,
-			nb_stops.the_geom
-		FROM nb_trips
-		JOIN sub ON TRUE
-		JOIN nb_stops
-			ON sub.stop_id = nb_stops.stop_id
-		WHERE nb_trips.trip_id = %s;
-	""",(direction_id,direction_id,trip_id))
-	result = {}
-	for (stop_id,measure,distance,geom) in c.fetchall():
-		result[stop_id] = {
-			'm':measure,
-			'd':distance,
-			'g':geom
-		}
-	return result
+			stop_id,
+			the_geom
+		FROM nb_stops
+		WHERE stop_id IN (SELECT stop_id FROM sub);
+	""",(direction_id,direction_id))
+	stops = []
+	for (stop_id,geom) in c.fetchall():
+		stops.append({
+			'id':stop_id,
+			'geom':geom
+		})
+	return stops
 
 
 def set_trip_orig_geom(trip_id):

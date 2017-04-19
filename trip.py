@@ -35,7 +35,7 @@ class trip(object):
 		# declare several vars for later in the matching process
 		self.speed_string = ""				# str
 		self.match_confidence = -1			# 0 - 1 real
-		self.stops = {}						# not set until process()
+		self.stops = []						# not set until process()
 		self.segment_speeds = []			# reported speeds of all segments
 		self.waypoints = []					# points on the finallized trip only
 		# TODO testing...
@@ -144,20 +144,30 @@ class trip(object):
 				print '\t\t\twaypoint fail'
 
 		# get the stops ( as a dict keyed by stop_id
-		# with keys {'s':sequence,'m':measure,'d':distance}
+		# with keys {'m':measure,'d':distance,'g':geom}
+		# TODO remove trip from this function, just dirid needed
 		self.stops = db.get_stops(self.trip_id,self.direction_id)
 		# we now have all the waypoints and all the stops and
 		# can begin interpolating times, to be stored alongside the stops.
-		num_times = True
-		for stop_id in self.stops.keys():
-			if self.stops[stop_id]['d'] < 20: # if close enough to be interpolated
-				stop_time = self.interpolate_time(stop_id)
+		num_times = 0
+		for stop in self.stops:
+			# process the geom
+			stop['geom'] = shapely.wkb.loads( stop['geom'], hex=True )
+			# # if close enough to be interpolated
+			if self.match_geom.distance(stop['geom']) < 20:
+				# find position on line
+				stop['m'] = self.match_geom.project( 
+					stop['geom'], 
+					normalized=True 
+				)
+				# interpolate a time
+				stop_time = self.interpolate_time(stop)
 				if not stop_time: 
 					continue
 				# get the stop time and store it
 				db.store_stop_time(
 					self.trip_id,	# trip_id
-					stop_id,			# stop_id
+					stop['id'],		# stop_id
 					stop_time		# epoch time
 				)
 				num_times += 1
@@ -245,11 +255,10 @@ class trip(object):
 			return
 
 
-	def interpolate_time(self,stop_id):
+	def interpolate_time(self,stop):
 		"""get the time for a stop which is ordered by doing an interpolation
 			on the trip times and locations. We already know the m of the stop
 			and of the points on the trip/track"""
-		stop_m = self.stops[stop_id]['m']
 		# iterate over the segments of the trip, looking for the segment
 		# which holds the stop of interest
 		first = True
@@ -261,11 +270,11 @@ class trip(object):
 				continue
 			m2 = point['m']
 			t2 = point['t']
-			if m1 <= stop_m <= m2:	# intersection is at or between these points
+			if m1 <= stop['m'] <= m2:	# intersection is at or between these points
 				# interpolate the time
-				if stop_m == m1:
+				if stop['m'] == m1:
 					return t1
-				percent_of_segment = (stop_m - m1) / (m2 - m1)
+				percent_of_segment = (stop['m'] - m1) / (m2 - m1)
 				additional_time = percent_of_segment * (t2 - t1) 
 				return t1 + additional_time
 			# create the segment for the next iteration
