@@ -38,6 +38,8 @@ class trip(object):
 		# TODO testing...
 		self.length = 0						# length in meters of current string
 		self.vehicles = []					# ordered vehicle records
+		self.ignored_vehicles = []			# discarded records
+		self.problems = []					# running list of issues
 
 	@classmethod
 	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
@@ -55,41 +57,39 @@ class trip(object):
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
 		db.scrub_trip(self.trip_id)
-		db.sequence_vehicles(self.trip_id)
-		# populate the geometry fields
+#		db.sequence_vehicles(self.trip_id)
 		db.update_vehicle_geoms(self.trip_id)
 
 		# TODO testing shapely...
 		
-		# get vehicles and make shapely objects
+		# get vehicles and make geometry objects
 		self.vehicles = db.shp_get_vehicles(self.trip_id)
 		for v in self.vehicles:
 			v['geom'] = shapely.wkb.loads(v['geom'],hex=True)
 			v['ignore'] = False
 		# calculate vector of segment speeds
 		self.segment_speeds = self.get_segment_speeds()
-
-		if self.length < 800: # meters
+		# check for very short trips
+		if self.length < 0.8: # km
 			return db.ignore_trip(self.trip_id,'too short')
 		# check for errors and attempt to correct them
 		while self.has_errors():
 			# make sure it's still long enough to bother with
-			if len(self.speed_string) < 3:
+			if len(self.vehicles) < 3:
 				return db.ignore_trip(self.trip_id,'error processing made too short')
 			# still long enough to try fixing
 			self.fix_error()
 			# update the segment speeds for the next iteration
-			self.segment_speeds = db.trip_segment_speeds(self.trip_id)
+			self.segment_speeds = self.get_segment_speeds()
 		# trip is clean, so store the cleaned line and begin matching
-		db.set_trip_clean_geom(self.trip_id)
 		self.match()
 
 	def get_segment_speeds(self):
 		"""return speeds (kmph) on the segments between vehicles
 			non-ignored only and using shapely"""
 		# iterate over segments (i-1)
-		dists = []
-		times = []
+		dists = []	# km
+		times = []	# hours
 		for i in range(1,len(self.vehicles)):
 			v1 = self.vehicles[i-1]
 			v2 = self.vehicles[i]
@@ -106,13 +106,13 @@ class trip(object):
 	def match(self):
 		"""Match the trip to the road network, and do all the
 			things that follow therefrom."""
-		match = map_api.map_match(self.trip_id)
+		match = map_api.map_match(self.vehicles)
 		# flag results with multiple matches for now until you can 
 		# figure out exactly what is going wrong
 		if match['code'] != 'Ok':
-			return db.flag_trip(self.trip_id,'match problem, code not "Ok"')
+			return self.flag('match problem, code not "Ok"')
 		if len(match['matchings']) > 1:
-			return db.flag_trip(self.trip_id,'more than one match segment')
+			return self.flag('more than one match segment')
 		# get the matched points
 		tracepoints = match['tracepoints']
 		match = match['matchings'][0]
@@ -168,6 +168,16 @@ class trip(object):
 		return
 
 
+	def ignore_vehicle(self,index):
+		"""ignore a vehicle specified by the index"""
+		v = self.vehicles.pop(index)
+		self.ignored_vehicles.append(v)
+
+	def flag(self,problem_description):
+		"""record that something undesireable has occured"""
+		self.problems.append(problem_description)
+
+
 	def has_errors(self):
 		"""see if the speed segments indicate that there are any 
 			fixable errors by making the speed string and checking
@@ -191,22 +201,26 @@ class trip(object):
 		# check for leading o's (stationary start)
 		m = re.search('^oo*',self.speed_string)
 		if m: # remove the first vehicle
-			db.delete_vehicle( self.trip_id, 1 )
+			self.ignore_vehicle(0)
+#			db.delete_vehicle( self.trip_id, 1 )
 			return
 		# check for trailing o's (stationary end)
 		m = re.search('oo*$',self.speed_string)
 		if m: # remove the last vehicle
-			db.delete_vehicle( self.trip_id, len(self.speed_string)+1 )
+			self.ignore_vehicle( len(self.speed_string) )
+#			db.delete_vehicle( self.trip_id, len(self.speed_string)+1 )
 			return
 		# check for x near beginning, in first four segs
 		m = re.search('^.{0,3}x',self.speed_string)
 		if m: # remove the first vehicle
-			db.delete_vehicle( self.trip_id, 1 )
+			self.ignore_vehicle(0)
+#			db.delete_vehicle( self.trip_id, 1 )
 			return
 		# check for x near the end, in last four segs
 		m = re.search('x.{0,3}$',self.speed_string)
 		if m: # remove the last vehicle
-			db.delete_vehicle( self.trip_id, len(self.speed_string)+1 )
+			self.ignore_vehicle(len(self.speed_string))
+#			db.delete_vehicle( self.trip_id, len(self.speed_string)+1 )
 			return
 		# check for two or more o's in the middle and take from after the first o
 		m = re.search('.ooo*.',self.speed_string)
@@ -214,19 +228,23 @@ class trip(object):
 			# remove the vehicle after the first o. This matches like '-oo-'
 			# so we need to add 2 to the start position to remove the vehicle 
 			# report from between the o's ('-o|o-')
-			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
+			self.ignore_vehicle(m.span()[0]+1)
+#			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
 			return
 		# 'xx' in the middle, delete the point after the first x
 		m = re.search('.xxx*',self.speed_string)
 		if m:
 			# same strategy as above
-			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
+			self.ignore_vehicle(m.span()[0]+1)
+#			db.delete_vehicle( self.trip_id, m.span()[0]+2 )
 			return
 		# lone middle x
 		m = re.search('.x.',self.speed_string)
 		if m:
 			# delete a point either before or after a lone x
-			db.delete_vehicle( self.trip_id, m.span()[0]+1+random.randint(0,1) )
+			i = m.span()[0]+1+random.randint(0,1)
+			self.ignore_vehicle(i-1)
+#			db.delete_vehicle( self.trip_id, i )
 			return
 
 

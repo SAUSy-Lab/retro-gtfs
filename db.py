@@ -123,66 +123,66 @@ def flag_trip(trip_id,problem_description_string):
 	)
 
 
-def trip_segment_speeds(trip_id):
-	"get a list of the speeds (KMpH) on each inter-vehicle trip segment"
-	c = cursor()
-	# calculate segment-level speeds, in order of appearance
-	c.execute("""
-		SELECT
-			(v1.location <-> v2.location) / 1000 AS km,
-			(v2.report_time - v1.report_time) / 3600 AS hrs
-		FROM nb_vehicles AS v1
-		JOIN nb_vehicles AS v2
-			ON v1.seq = v2.seq-1
-		WHERE 
-			v1.trip_id = %s AND v2.trip_id = %s AND 
-			NOT (v1.ignore OR v2.ignore) 
-		ORDER BY v1.seq;
-	""",(trip_id,trip_id) )
-	# divides km/h, returning a list
-	try:
-		return [ kilometers/hours for (kilometers,hours) in c.fetchall() ]
-	except:
-		print 'trip '+str(trip_id)+'produced an error in trip_segment_speeds()'
-		return []
+#def trip_segment_speeds(trip_id):
+#	"get a list of the speeds (KMpH) on each inter-vehicle trip segment"
+#	c = cursor()
+#	# calculate segment-level speeds, in order of appearance
+#	c.execute("""
+#		SELECT
+#			(v1.location <-> v2.location) / 1000 AS km,
+#			(v2.report_time - v1.report_time) / 3600 AS hrs
+#		FROM nb_vehicles AS v1
+#		JOIN nb_vehicles AS v2
+#			ON v1.seq = v2.seq-1
+#		WHERE 
+#			v1.trip_id = %s AND v2.trip_id = %s AND 
+#			NOT (v1.ignore OR v2.ignore) 
+#		ORDER BY v1.seq;
+#	""",(trip_id,trip_id) )
+#	# divides km/h, returning a list
+#	try:
+#		return [ kilometers/hours for (kilometers,hours) in c.fetchall() ]
+#	except:
+#		print 'trip '+str(trip_id)+'produced an error in trip_segment_speeds()'
+#		return []
 
 
-def delete_vehicle( trip_id, position ):
-	"""Remove a vehicle location record and shift the trip_sequence 
-		numbers accordingly. Actually just flag it off."""
-	c = cursor()
-	# flag the record of a single specified vehicle
-	# shift the sequence number down one for all vehicles past the flagged one
-	c.execute("""
-		UPDATE nb_vehicles SET ignore = TRUE, seq = NULL
-		WHERE trip_id = %s AND seq = %s;
-		UPDATE nb_vehicles SET seq = seq - 1
-		WHERE trip_id = %s AND seq > %s;
-	""",( trip_id ,position, trip_id, position ))
+#def delete_vehicle( trip_id, position ):
+#	"""Remove a vehicle location record and shift the trip_sequence 
+#		numbers accordingly. Actually just flag it off."""
+#	c = cursor()
+#	# flag the record of a single specified vehicle
+#	# shift the sequence number down one for all vehicles past the flagged one
+#	c.execute("""
+#		UPDATE nb_vehicles SET ignore = TRUE, seq = NULL
+#		WHERE trip_id = %s AND seq = %s;
+#		UPDATE nb_vehicles SET seq = seq - 1
+#		WHERE trip_id = %s AND seq > %s;
+#	""",( trip_id ,position, trip_id, position ))
 
 
-def get_vehicles(trip_id):
-	"""gets data on the ordered vehicles for a trip.
-		This is for input into map matching"""
-	c = cursor()
-	# get the trip geometry and timestamps
-	c.execute("""
-		SELECT
-			lon, lat,
-			ROUND(report_time)::int AS t
-		FROM nb_vehicles 
-		WHERE trip_id = %s AND NOT ignore
-		ORDER BY report_time ASC;
-	""",(trip_id,))
-	# turn that data into correctly formatted lists
-	lons = []
-	lats = []
-	times = []
-	for (lon,lat,time) in c.fetchall():
-		lons.append(lon)
-		lats.append(lat)
-		times.append(time)
-	return (lons,lats,times)
+#def get_vehicles(trip_id):
+#	"""gets data on the ordered vehicles for a trip.
+#		This is for input into map matching"""
+#	c = cursor()
+#	# get the trip geometry and timestamps
+#	c.execute("""
+#		SELECT
+#			lon, lat,
+#			ROUND(report_time)::int AS t
+#		FROM nb_vehicles 
+#		WHERE trip_id = %s AND NOT ignore
+#		ORDER BY report_time ASC;
+#	""",(trip_id,))
+#	# turn that data into correctly formatted lists
+#	lons = []
+#	lats = []
+#	times = []
+#	for (lon,lat,time) in c.fetchall():
+#		lons.append(lon)
+#		lats.append(lat)
+#		times.append(time)
+#	return (lons,lats,times)
 
 def add_trip_match(trip_id,confidence,geometry_match):
 	"""update the trip record with it's matched geometry"""
@@ -250,7 +250,8 @@ def get_stops(trip_id,direction_id):
 		SELECT 
 			sub.stop_id,
 			ST_LineLocatePoint(nb_trips.match_geom,nb_stops.the_geom) AS m,
-			nb_trips.match_geom <-> nb_stops.the_geom AS dist
+			nb_trips.match_geom <-> nb_stops.the_geom AS dist,
+			nb_stops.the_geom
 		FROM nb_trips
 		JOIN sub ON TRUE
 		JOIN nb_stops
@@ -258,10 +259,11 @@ def get_stops(trip_id,direction_id):
 		WHERE nb_trips.trip_id = %s;
 	""",(direction_id,direction_id,trip_id))
 	result = {}
-	for (stop_id,measure,distance) in c.fetchall():
+	for (stop_id,measure,distance,geom) in c.fetchall():
 		result[stop_id] = {
 			'm':measure,
-			'd':distance
+			'd':distance,
+			'g':geom
 		}
 	return result
 
@@ -282,20 +284,20 @@ def set_trip_orig_geom(trip_id):
 	)
 
 
-def set_trip_clean_geom(trip_id):
-	"""Store the UN-IGNORED vehicle records for this trip 
-		as a line geometry with the trip record."""
-	c = cursor()
-	c.execute("""
-		UPDATE nb_trips SET clean_geom = (
-			SELECT ST_MakeLine(location ORDER BY seq ASC) 
-			FROM nb_vehicles 
-			WHERE trip_id = %s 
-				AND NOT ignore
-		)
-		WHERE trip_id = %s;
-		""",(trip_id,trip_id,)
-	)
+#def set_trip_clean_geom(trip_id):
+#	"""Store the UN-IGNORED vehicle records for this trip 
+#		as a line geometry with the trip record."""
+#	c = cursor()
+#	c.execute("""
+#		UPDATE nb_trips SET clean_geom = (
+#			SELECT ST_MakeLine(location ORDER BY seq ASC) 
+#			FROM nb_vehicles 
+#			WHERE trip_id = %s 
+#				AND NOT ignore
+#		)
+#		WHERE trip_id = %s;
+#		""",(trip_id,trip_id,)
+#	)
 
 
 def locate_trip_point(trip_id,lon,lat):
@@ -477,25 +479,25 @@ def scrub_trip(trip_id):
 	)
 
 
-def sequence_vehicles(trip_id):
-	"""set the seq value for all un-ignored vehicle 
-		records by ordering timestamps"""
-	c = cursor()
-	c.execute("""
-		WITH new_order AS (
-			SELECT 
-				uid,
-				row_number() OVER (ORDER BY report_time ASC) AS row_number
-			FROM nb_vehicles 
-			WHERE trip_id = %s AND NOT ignore
-		)
-		UPDATE nb_vehicles SET seq = row_number
-		FROM new_order 
-		WHERE 
-			new_order.uid = nb_vehicles.uid AND 
-			trip_id = %s -- this little redundant bit makes the query much faster
-		""",(trip_id,trip_id,)
-	)
+#def sequence_vehicles(trip_id):
+#	"""set the seq value for all un-ignored vehicle 
+#		records by ordering timestamps"""
+#	c = cursor()
+#	c.execute("""
+#		WITH new_order AS (
+#			SELECT 
+#				uid,
+#				row_number() OVER (ORDER BY report_time ASC) AS row_number
+#			FROM nb_vehicles 
+#			WHERE trip_id = %s AND NOT ignore
+#		)
+#		UPDATE nb_vehicles SET seq = row_number
+#		FROM new_order 
+#		WHERE 
+#			new_order.uid = nb_vehicles.uid AND 
+#			trip_id = %s -- this little redundant bit makes the query much faster
+#		""",(trip_id,trip_id,)
+#	)
 
 
 def get_trip(trip_id):
@@ -555,49 +557,20 @@ def shp_get_vehicles(trip_id):
 	# get the trip geometry and timestamps
 	c.execute("""
 		SELECT
-			uid, location, report_time
+			uid, location, lat, lon, report_time
 		FROM nb_vehicles 
 		WHERE trip_id = %s
 		ORDER BY report_time ASC;
 	""",(trip_id,))
 	vehicles = []
-	for (uid,geom,time) in c.fetchall():
+	for (uid,geom,lat,lon,time) in c.fetchall():
 		vehicles.append({
 			'uid':	uid,
 			'geom':	geom,
-			'time':	time
+			'time':	time,
+			'lat':	lat,
+			'lon':	lon
 		})
 	return vehicles
 
 
-
-
-#def get_stop_data(direction_id):
-#	"""get simple data on attributes and locations of the stops.
-#		return as an array of objects"""
-#	c = cursor()
-#	c.execute("""
-#		WITH sub AS (
-#			SELECT
-#				unnest(stops) AS stop_id
-#			FROM nb_directions 
-#			WHERE
-#				direction_id = '8_0_8' AND
-#				report_time = (
-#					SELECT MAX(report_time) -- most recent 
-#					FROM nb_directions 
-#					WHERE direction_id = '8_0_8'
-#				)
-#		)
-#		SELECT 
-#			sub.stop_id,
-#			nb_stops.the_geom
-#		FROM sub JOIN nb_stops
-#			ON sub.stop_id = nb_stops.stop_id;
-#	""",(direction_id,direction_id))
-#	result = {}
-#	for (stop_id,geom) in c.fetchall():
-#		result[stop_id] = {
-#			'geom':geom
-#		}
-#	return result

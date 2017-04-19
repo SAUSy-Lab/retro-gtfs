@@ -4,12 +4,18 @@
 import requests, json, db
 from conf import conf
 
-def map_match(trip_id,include_times=True):
+def map_match(vehicles,include_times=True):
 	"""Map Match the GPS track to the street/rail network
 		return the python-parsed JSON object"""
-	# get the data for this trip
-	(lons,lats,times) = db.get_vehicles(trip_id)
 	# structure it like fussy API needs
+	lons = []
+	lats = []
+	times = []
+	radii = []
+	for v in vehicles:
+		lons.append(v['lon'])
+		lats.append(v['lat'])
+		times.append( int( round( v['time'] ) ) )
 	coords = ';'.join( [str(lon)+','+str(lat) for (lon,lat) in zip(lons,lats)] )
 	times = ';'.join( [str(time) for time in times] )
 	radii = ';'.join( ['20']*len(lons) )
@@ -32,7 +38,6 @@ def map_match(trip_id,include_times=True):
 	# without times. Avoid infinite recursion
 	if include_times: # was first try
 		if j['code']=='Ok' and len(j['matchings']) > 1: # and now more than one match
-			print '\ttrying',trip_id,'again without times'
 			# try without times
-			j = map_match(trip_id,False)
+			j = map_match(vehicles,False)
 	return j

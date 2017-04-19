@@ -19,9 +19,6 @@ if mode == 'single':
 		if db.trip_exists(trip_id):
 			# create a trip object
 			this_trip = trip.fromDB(trip_id)
-			# get the DB (back) to a fresh state
-			db.scrub_trip(trip_id)
-			db.sequence_vehicles(trip_id)
 			# process
 			this_trip.process()
 		else:
