@@ -45,11 +45,9 @@ DROP TABLE IF EXISTS nb_vehicles;
 CREATE TABLE nb_vehicles (
 	uid serial PRIMARY KEY, -- bigserial if more than ~2B records needed
 	trip_id integer,
-	seq smallint, -- sequence in the trip reports
 	report_time double precision, -- epoch time of report
 	lat numeric,
 	lon numeric,
-	location geometry(Point,26917),
 	ignore boolean DEFAULT FALSE -- ignore this vehicle during processing?
 );
 CREATE INDEX nbv_idx ON nb_vehicles (trip_id);

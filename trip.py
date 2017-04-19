@@ -6,12 +6,11 @@ import map_api
 from numpy import mean
 import threading
 import random
-# testing...
-import shapely.wkb, shapely.ops
-from shapely.geometry import Point, asShape
-
-
 from conf import conf
+# testing...
+from shapely.wkb import loads as loadWKB
+from shapely.ops import transform as reproject
+from shapely.geometry import Point, asShape
 
 
 print_lock = threading.Lock()
@@ -64,7 +63,7 @@ class trip(object):
 		# get vehicle records and make geometry objects
 		self.vehicles = db.get_vehicles(self.trip_id)
 		for v in self.vehicles:
-			v['geom'] = shapely.wkb.loads(v['geom'],hex=True)
+			v['geom'] = loadWKB(v['geom'],hex=True)
 			v['ignore'] = False
 		# calculate vector of segment speeds
 		self.segment_speeds = self.get_segment_speeds()
@@ -120,63 +119,57 @@ class trip(object):
 		# store the trip geometry
 		self.match_geom = asShape(match['geometry'])
 		# and be sure to projejct it correctly...
-		self.match_geom = shapely.ops.transform( 
-			conf['projection'], 
-			self.match_geom
-		)
+		self.match_geom = reproject( conf['projection'], self.match_geom )
 
-		db.add_trip_match(
-			self.trip_id,
-			self.match_confidence,
-			json.dumps(match['geometry'])
-		)
+#		db.add_trip_match(
+#			self.trip_id,
+#			self.match_confidence,
+#			json.dumps(match['geometry'])
+#		)
 
 		# get the times for the waypoints from the vehicle locations
 		# compare to the corresponding points on the matched line 
 		for point,vehicle in zip(tracepoints,self.vehicles):
 			# these are the matched points of the input cordinates
+			# null entries indicate an omitted outlier
+			# that is why there is a 'try' here. 
 			try:
 				self.waypoints.append({
 					't':vehicle['time'],
 					'm':self.match_geom.project( vehicle['geom'], normalized=True )
 				})
-			except:
-				print '\t\t\twaypoint fail'
 
-		# get the stops ( as a dict keyed by stop_id
-		# with keys {'m':measure,'d':distance,'g':geom}
-		# TODO remove trip from this function, just dirid needed
-		self.stops = db.get_stops(self.trip_id,self.direction_id)
+		# get the stops as a list of objects
+		# with keys {'id':stop_id,'g':geom}
+		self.stops = db.get_stops(self.direction_id)
 		# we now have all the waypoints and all the stops and
 		# can begin interpolating times, to be stored alongside the stops.
-		num_times = 0
+		# process the geoms
 		for stop in self.stops:
-			# process the geom
-			stop['geom'] = shapely.wkb.loads( stop['geom'], hex=True )
-			# # if close enough to be interpolated
-			if self.match_geom.distance(stop['geom']) < 20:
-				# find position on line
-				stop['m'] = self.match_geom.project( 
-					stop['geom'], 
-					normalized=True 
-				)
-				# interpolate a time
-				stop_time = self.interpolate_time(stop)
-				if not stop_time: 
-					continue
-				# get the stop time and store it
-				db.store_stop_time(
-					self.trip_id,	# trip_id
-					stop['id'],		# stop_id
-					stop_time		# epoch time
-				)
-				num_times += 1
-
+			stop['geom'] = loadWKB(stop['geom'],hex=True)
+		# discard stops that are too far away
+		self.stops = [
+			s for s in self.stops 
+			if self.match_geom.distance(s['geom']) < conf['stop_dist']
+		]
+		for stop in self.stops:
+			# find position on line
+			stop['m'] = self.match_geom.project( 
+				stop['geom'], 
+				normalized=True 
+			)
+			# interpolate a time
+			stop['arrival'] = self.interpolate_time(stop)
+			if not stop['arrival']:
+				print '\t\tproblem with time??' 
+				continue
+		# sort stops by arrival time
+		self.stops = sorted(self.stops,key=lambda k: k['arrival'])
 		# report on match quality
 		print '\t',self.match_confidence
-
-		if num_times > 1:
-			db.finish_trip(self.trip_id)
+		# there is more than one stop, right?
+		if len(self.stops) > 1:
+			db.finish_trip(self)
 		else:
 			db.ignore_trip(self.trip_id,'only one stop time estimated')
 		return
@@ -279,7 +272,17 @@ class trip(object):
 				return t1 + additional_time
 			# create the segment for the next iteration
 			m1,t1 = m2,t2
-		print '\t\t\tstop thing failed??'
+
+		# if we've made it this far, the stop was not technically on or 
+		# between any waypoints. This is probably a precision issue and the 
+		# stop should be right off one of the ends. Add 20 seconds as a 
+		# guestimate for extra time
+		if stop['m'] == 0:
+			return self.waypoints[0]['t'] - 20
+		elif stop['m'] == 1:
+			return self.waypoints[-1]['t'] + 20
+		else:
+			print '\t\tstop thing failed??'
 		return None
 
 
