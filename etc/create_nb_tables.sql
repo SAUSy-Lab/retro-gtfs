@@ -24,7 +24,7 @@ CREATE TABLE nb_stops (
 	the_geom geometry(POINT,26917),
 	report_time timestamp with time zone
 );
-CREATE nbs_idx INDEX ON nb_stops (stop_id);
+CREATE INDEX nbs_idx ON nb_stops (stop_id);
 CLUSTER nb_stops USING nbs_idx;
 
 DROP TABLE IF EXISTS nb_directions;
@@ -39,7 +39,8 @@ CREATE TABLE nb_directions (
 	stops text[],
 	report_time timestamp with time zone
 );
-CREATE INDEX ON nb_directions (direction_id);
+CREATE INDEX nbd_idx ON nb_directions (direction_id);
+CLUSTER nb_directions USING nbd_idx;
 
 DROP TABLE IF EXISTS nb_vehicles;
 CREATE TABLE nb_vehicles (
@@ -68,7 +69,7 @@ CREATE TABLE nb_trips (
 	problem varchar DEFAULT '',	-- description of any problems that arise
 	ignore boolean DEFAULT FALSE	-- ignore this vehicle during processing?
 );
-CREATE nbt_idx INDEX ON nb_trips (trip_id);
+CREATE INDEX nbt_idx ON nb_trips (trip_id);
 CLUSTER nb_trips USING nbt_idx;
 
 DROP TABLE IF EXISTS nb_stop_times;
