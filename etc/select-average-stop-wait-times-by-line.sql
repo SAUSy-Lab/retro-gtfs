@@ -1,8 +1,13 @@
 ﻿/* 
 	Select average wait times at all stops on a line
 	for one service day, in minutes
-	TODO 
-	-- bring in from cloud: nb_stops, nb_stop_times, nb_trips
+
+	\begin{equation}
+		\bar{W} = \frac{\bar{H}}{2} * \frac{1 + VAR(H)}{\bar{H}^2}  
+	\end{equation}
+			
+	Where $\bar{W}$ is the mean wait time, $\bar{H}$ is the average headway, and $VAR(H)$ is the variance of the headway \parencite[See][]{Mishalani2006}.
+
 */
 DROP TABLE IF EXISTS temp_ave_stop_waits;
 

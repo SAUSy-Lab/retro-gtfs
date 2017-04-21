@@ -138,7 +138,8 @@ class trip(object):
 					't':vehicle['time'],
 					'm':self.match_geom.project( vehicle['geom'], normalized=True )
 				})
-
+			except:
+				pass
 		# get the stops as a list of objects
 		# with keys {'id':stop_id,'g':geom}
 		self.stops = db.get_stops(self.direction_id)
