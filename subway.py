@@ -22,16 +22,47 @@ four = {
 fleet = {} 			# operating vehicles in the fleet keyed by id
 # 
 for stationName in four['stations']:
-
 	print stationName
+	# get the trains coming in to station
 	trains = get_incoming_trains(stationName)
-
+	# 	
 	for train in trains:
+		if train['dir'] in ['North','South']:
+			continue
 		if train['id'] not in fleet:
-			fleet[train['id']] = {}
+			# store info for first time
+			fleet[train['id']] = {
+				'next': stationName,
+				'timeAway': train['timeAway'],
+				'dir': train['dir']
+			}
 		else:
-			pass
+			# update info if train is closer to this station than another
+			if fleet[train['id']]['timeAway'] > train['timeAway']:
+				fleet[train['id']] = {
+					'next':stationName,
+					'timeAway':train['timeAway'],
+					'dir': train['dir']
+				}
+				
 print fleet
+
+class fleet():
+	"""Hold references to all active vehicles, manage means of accessing them."""
+	def __init__(self):
+		# this should hold a list of references to vehicle objects
+		self.vehicles = {}
+	
+	def add_vehicle(self,vehicle):
+		pass
+		
+	def del_vehicle(self,vid):
+		pass
+		
+
+
+	
+
 
 
 
