@@ -1,8 +1,0 @@
-# compiled python code
-*.pyc
-
-# temporary files
-temp/*.csv
-
-# user-specific configuration file
-conf.py
