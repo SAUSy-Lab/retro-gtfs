@@ -1,9 +1,7 @@
-from time import time
-
 class Vehicle(object):
 	"""describes a subway train with latest known properties"""
 
-def __init__(self, vid, line, direction, next_stop_name, mins_from_now ):
+	def __init__( self, vid, line, direction, next_stop_name, est_arrival ):
 		# unique vehicle id
 		self.id = vid
 		# identifier of the subway line
@@ -11,11 +9,11 @@ def __init__(self, vid, line, direction, next_stop_name, mins_from_now ):
 		# Cardinal direction being operated. 
 		# Corresponds with ordering of stops
 		self.direction = direction
-		# 
+		# name of the next stop that the train will arrive at
 		self.next_stop = next_stop_name
 		# estimated arrival time at next stop
 		# seconds from epoch
-		self.est_arrival = time() + mins_from_now * 60
+		self.est_arrival = est_arrival
 		
 	# check values 
 	@property

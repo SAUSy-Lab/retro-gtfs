@@ -1,7 +1,9 @@
 # call this file to grab subway locations
 from subway_api import get_incoming_trains
+from vehicle import Vehicle
+from fleet import Fleet
 from time import sleep
-import threading, time
+import threading
 
 # DEFINE THE SUBWAYS 
 one = {
@@ -18,50 +20,20 @@ four = {
 	'stations':[ 'Sheppard-Yonge Station', 'Bayview Station', 'Bessarion Station', 'Leslie Station', 'Don Mills Station' ]
 }
 
+# create the fleet object 
+fleet = Fleet()
 
-fleet = {} 			# operating vehicles in the fleet keyed by id
-# 
+# make the initial call for each station, getting everything as 
+# quickly as possible
 for stationName in four['stations']:
 	print stationName
-	# get the trains coming in to station
-	trains = get_incoming_trains(stationName)
-	# 	
-	for train in trains:
-		if train['dir'] in ['North','South']:
-			continue
-		if train['id'] not in fleet:
-			# store info for first time
-			fleet[train['id']] = {
-				'next': stationName,
-				'timeAway': train['timeAway'],
-				'dir': train['dir']
-			}
-		else:
-			# update info if train is closer to this station than another
-			if fleet[train['id']]['timeAway'] > train['timeAway']:
-				fleet[train['id']] = {
-					'next':stationName,
-					'timeAway':train['timeAway'],
-					'dir': train['dir']
-				}
-				
-print fleet
-
-class fleet():
-	"""Hold references to all active vehicles, manage means of accessing them."""
-	def __init__(self):
-		# this should hold a list of references to vehicle objects
-		self.vehicles = {}
-	
-	def add_vehicle(self,vehicle):
-		pass
-		
-	def del_vehicle(self,vid):
-		pass
-		
+	# get status updates for all trains coming in to station
+	updates = get_incoming_trains(stationName)
+	for status in updates:
+		fleet.take_update(status)
 
 
-	
+#print fleet.vehicles
 
 
 
