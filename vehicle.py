@@ -1,7 +1,12 @@
+from time import time as now
+
+
 class Vehicle(object):
 	"""describes a subway train with latest known properties"""
 
-	def __init__( self, vid, line, direction, next_stop_name, est_arrival ):
+	def __init__( self, fleet, vid, line, direction, next_stop_name, est_arrival ):
+		# reference to the parent object
+		self.fleet = fleet
 		# unique vehicle id
 		self.id = vid
 		# identifier of the subway line
