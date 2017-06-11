@@ -7,7 +7,6 @@ from numpy import mean
 import threading
 import random
 from conf import conf
-# testing...
 from shapely.wkb import loads as loadWKB
 from shapely.ops import transform as reproject
 from shapely.geometry import Point, asShape
@@ -37,7 +36,6 @@ class trip(object):
 		self.stops = []						# not set until process()
 		self.segment_speeds = []			# reported speeds of all segments
 		self.waypoints = []					# points on the finallized trip only
-		# TODO testing...
 		self.length = 0						# length in meters of current string
 		self.vehicles = []					# ordered vehicle records
 		self.ignored_vehicles = []			# discarded records

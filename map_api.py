@@ -22,8 +22,10 @@ def map_match(vehicles,include_times=True):
 	# construct and send the request
 	options = {
 		'geometries':'geojson',
+		'overview':'full',
 		'radiuses':radii,
-		'overview':'full'
+		'gaps':'split',	# split the track based on big time gaps?
+		'tidy':True
 	}
 	if include_times:
 		options['timestamps'] = times
