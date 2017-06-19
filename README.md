@@ -7,4 +7,5 @@ Please look at the wiki on github for more information on actually using the cod
 
 Related projects by other people:
 * https://github.com/WorldBank-Transport/Transitime
-* There was another one somewhere...
+* https://trid.trb.org/view.aspx?id=1394074 (does anyone have a link to the actual paper?)
+* ...
