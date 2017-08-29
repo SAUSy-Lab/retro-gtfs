@@ -21,11 +21,14 @@ def map_match(vehicles,include_times=True):
 	radii = ';'.join( ['20']*len(lons) )
 	# construct and send the request
 	options = {
+		'steps':'false',
 		'geometries':'geojson',
+		'annotations':'false',
 		'overview':'full',
 		'radiuses':radii,
 		'gaps':'split',	# split the track based on big time gaps?
-		'tidy':True
+		'tidy':'true',
+		'generate_hints':'false'
 	}
 	if include_times:
 		options['timestamps'] = times

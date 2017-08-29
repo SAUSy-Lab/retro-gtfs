@@ -45,6 +45,7 @@ CLUSTER nb_directions USING nbd_idx;
 DROP TABLE IF EXISTS nb_vehicles;
 CREATE TABLE nb_vehicles (
 	uid serial PRIMARY KEY, -- bigserial if more than ~2B records needed
+	seq smallint,
 	trip_id integer,
 	report_time double precision, -- epoch time of report
 	lat numeric,
