@@ -1,8 +1,6 @@
 # functions involving BD interaction
-import psycopg2		# DB interaction
-import json
+import psycopg2, json, math
 from conf import conf
-import random
 
 # connect and establish a cursor, based on parameters in conf.py
 conn_string = (
@@ -11,23 +9,18 @@ conn_string = (
 	+"' user='"+conf['db']['user']
 	+"' password='"+conf['db']['password']+"'"
 )
-connection_1 = psycopg2.connect(conn_string)
-connection_2 = psycopg2.connect(conn_string)
-connection_3 = psycopg2.connect(conn_string)
-connection_1.autocommit = True
-connection_2.autocommit = True
-connection_3.autocommit = True
+connection = psycopg2.connect(conn_string)
+connection.autocommit = True
+
+def reconnect():
+	"""renew connections inside a process"""
+	global connection
+	connection = psycopg2.connect(conn_string)
+	connection.autocommit = True
 
 def cursor():
-	"""provide a cursor randomly from one of the 
-		available connections"""
-	c = random.randint(1,3)
-	if c == 1:
-		return connection_1.cursor()
-	elif c == 2:
-		return connection_2.cursor()
-	else:
-		return connection_3.cursor()
+	"""provide a cursor"""
+	return connection.cursor()
 
 def new_trip_id():
 	"""get a next trip_id to start from, defaulting to 1"""
@@ -69,8 +62,6 @@ def copy_vehicles(filename):
 		COPY nb_vehicles (trip_id,seq,lon,lat,report_time) FROM %s CSV;
 	""",(filename,))
 
-
-
 def trip_length(trip_id):
 	"""return the length of the trip in KM"""
 	c = cursor()
@@ -87,7 +78,6 @@ def trip_length(trip_id):
 	else: 
 		print 'trip_length() error'
 		return 0
-
 
 def delete_trip(trip_id,reason=None):
 	"""mask for ignore_trip"""
@@ -179,36 +169,38 @@ def get_stops(direction_id):
 	return stops
 
 
-#def set_trip_orig_geom(trip_id):
-#	"""simply take the vehicle records for this trip 
-#		and store them as a line geometry with the trip 
-#		record. ALL vehicles go in this line"""
-#	c = cursor()
-#	c.execute("""
-#		UPDATE nb_trips SET orig_geom = (
-#			SELECT ST_MakeLine(location ORDER BY seq ASC)
-#			FROM nb_vehicles 
-#			WHERE trip_id = %s
-#		)
-#		WHERE trip_id = %s;
-#		""",(trip_id,trip_id,)
-#	)
+def set_trip_orig_geom(trip_id,localWKBgeom):
+	"""ALL initial vehicles go in this line"""
+	c = cursor()
+	c.execute(
+		"""
+			UPDATE {trips} 
+			SET orig_geom = ST_SetSRID( %(geom)s::geometry, %(EPSG)s )
+			WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{
+			'trip_id':trip_id,
+			'geom':localWKBgeom,
+			'EPSG':conf['localEPSG']
+		}
+	)
 
 
-#def set_trip_clean_geom(trip_id):
-#	"""Store the UN-IGNORED vehicle records for this trip 
-#		as a line geometry with the trip record."""
-#	c = cursor()
-#	c.execute("""
-#		UPDATE nb_trips SET clean_geom = (
-#			SELECT ST_MakeLine(location ORDER BY seq ASC) 
-#			FROM nb_vehicles 
-#			WHERE trip_id = %s 
-#				AND NOT ignore
-#		)
-#		WHERE trip_id = %s;
-#		""",(trip_id,trip_id,)
-#	)
+def set_trip_clean_geom(trip_id,localWKBgeom):
+	"""Store a geometry of the input to the matching process"""
+	c = cursor()
+	c.execute(
+		"""
+			UPDATE {trips} 
+			SET clean_geom = ST_SetSRID( %(geom)s::geometry, %(EPSG)s )
+			WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{
+			'trip_id':trip_id,
+			'geom':localWKBgeom,
+			'EPSG':conf['localEPSG']
+		}
+	)
 
 
 
@@ -382,13 +374,14 @@ def get_trip(trip_id):
 def get_trip_ids(min_id,max_id):
 	"""return a list of all trip ids in the specified range"""
 	c = cursor()
-	c.execute("""
-		SELECT trip_id 
-		FROM nb_trips 
-		WHERE trip_id 
-		BETWEEN %s AND %s 
-		ORDER BY trip_id DESC
-		""",(min_id,max_id,)
+	c.execute(
+		"""
+			SELECT trip_id 
+			FROM {trips}
+			WHERE trip_id BETWEEN %(min)s AND %(max)s 
+			ORDER BY trip_id ASC
+		""".format(**conf['db']['tables']),
+		{'min':min_id,'max':max_id}
 	)
 	return [ result for (result,) in c.fetchall() ]
 

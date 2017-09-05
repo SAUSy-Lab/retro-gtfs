@@ -1,15 +1,22 @@
 # call this file to begin processing a set of trips from 
 # stored vehicle locations. It will ask which trips from 
-# the db to process. For now, I am testing with one at a 
-# time. 
+# the db to process. You can either process individual 
+# trips or a range of trips given sequential trip_ids 
 
-import threading
-import db
+import multiprocessing as mp
 from time import sleep
 from trip import trip
+import db
 
 # let mode be one of ('single','range?')
 mode = raw_input('Processing mode (single or range) --> ')
+
+def process_trip(valid_trip_id):
+	"""worker process called when using multiprocessing"""
+	print 'starting trip:',valid_trip_id
+	db.reconnect()
+	t = trip.fromDB(valid_trip_id)
+	t.process()
 
 # single mode enters one trip at a time and stops when 
 # a non-integer is entered
@@ -30,26 +37,14 @@ if mode == 'single':
 elif mode == 'range':
 	id_range = raw_input('trip_id range as start:end --> ')
 	id_range = id_range.split(':')
-	# get a list of trip id's in the range
+	# get a list of block id's in the range
 	trip_ids = db.get_trip_ids(id_range[0],id_range[1])
 	print len(trip_ids),'trips in that range'
-	# how many threads to use?
-	max_threads = int(raw_input('max threads --> '))
-	# start looping over trips
-	while len(trip_ids) > 0:
-		if threading.active_count() < max_threads + 1:
-			tid = trip_ids.pop()
-			print str(len(trip_ids)),' trips remaining'
-			some_trip = trip.fromDB(tid)
-			thread = threading.Thread(target=some_trip.process)
-			thread.daemon = True
-			thread.start()
-		else:
-			sleep(0.2)
-	# now wait for all daemon threads to end before letting 
-	# the main thread die
-	while threading.active_count() > 1:
-		sleep(0.2)
+	# how many parallel processes to use?
+	max_procs = int(raw_input('max processes --> '))
+	# create a pool of workers and pass them the data
+	p = mp.Pool(max_procs)
+	p.map(process_trip,trip_ids,chunksize=1)
 	print 'COMPLETED!'
 
 else:

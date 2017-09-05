@@ -55,15 +55,16 @@ def get_new_vehicles():
 	# get values from the XML
 	last_update = int(XML.find('./lastTime').attrib['time'])
 	vehicles = XML.findall('.//vehicle')
-	# check to see if there's anything we just haven't heard from at all lately
+	# prevent simulataneous editing
 	with fleet_lock:
+		# check to see if there's anything we just haven't heard from at all lately
 		for vid in fleet.keys():
 			# if it's been more than 3 minutes
 			if server_time - fleet[vid].last_seen > 180:
 				# it has ended
 				ending_trips.append(fleet[vid])
 				del fleet[vid]
-		# for each reported vehicle now
+		# Now, for each reported vehicle
 		for v in vehicles:
 			# if it's not predictable, it's not operating a route
 			if v.attrib['predictable'] == 'false': 
@@ -74,39 +75,46 @@ def get_new_vehicles():
 				continue
 			# get values from XML
 			vid, rid, did = int(v.attrib['id']),v.attrib['routeTag'],v.attrib['dirTag']
-			lon, lat = v.attrib['lon'], v.attrib['lat']
-			last_seen = server_time - int(v.attrib['secsSinceReport'])
+			lon, lat = float(v.attrib['lon']), float(v.attrib['lat'])
+			report_time = server_time - int(v.attrib['secsSinceReport'])
 			try: # have we seen this vehicle recently?
 				fleet[vid]
 			except: # haven't seen it! create a new trip
-				fleet[vid] = trip.new(next_trip_id,next_bid,did,rid,vid,last_seen)
+				fleet[vid] = trip.new(next_trip_id,next_bid,did,rid,vid,report_time)
+				# add this vehicle to the trip
+				fleet[vid].add_point(lon,lat,report_time)
 				# increment the trip and block counters
 				next_trip_id += 1
 				next_bid += 1
 				# store the vehicle record
-				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,last_seen))
+				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,report_time))
 				# done with this vehicle
 				continue
-			# see if anything ELSE has changed that makes this a new trip
+			# we have a record for this vehicle, and it's been heard from recently
+			# see if anything else has changed that makes this a new trip
 			if ( fleet[vid].route_id != rid or fleet[vid].direction_id != did ):
 				# get the block_id from the previous trip
 				last_bid = fleet[vid].block_id
 				# this trip is ending
 				ending_trips.append( fleet[vid] )
 				# create the new trip in it's place
-				fleet[vid] = trip.new(next_trip_id,last_bid,did,rid,vid,last_seen)
+				fleet[vid] = trip.new(next_trip_id,last_bid,did,rid,vid,report_time)
+				# add this vehicle to it
+				fleet[vid].add_point(lon,lat,report_time)
 				# increment the trip counter
 				next_trip_id += 1
 				# store the vehicle record
-				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,last_seen))
-			else: # not a new trip, just update the time and sequence
-				fleet[vid].last_seen = last_seen
+				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,report_time))
+			else: # not a new trip, just add the vehicle
+				fleet[vid].add_point(lon,lat,report_time)
+				# then update the time and sequence
+				fleet[vid].last_seen = report_time
 				fleet[vid].seq += 1
 				# and store the vehicle of course
 				vehicles_to_store.append((
 					fleet[vid].trip_id, 
 					fleet[vid].seq,
-					lon,lat,last_seen
+					lon,lat,report_time
 				))
 	# release the fleet lock
 	print len(fleet),'in fleet,',len(vehicles_to_store),'to store,',len(ending_trips),'ending trips'

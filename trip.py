@@ -1,18 +1,13 @@
 # documentation on the nextbus feed:
 # http://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf
 
-import re, db, json
-import map_api
+import re, db, json, map_api, random, math
 from numpy import mean
-import threading
-import random
 from conf import conf
-from shapely.wkb import loads as loadWKB
+from shapely.wkb import loads as loadWKB, dumps as dumpWKB
 from shapely.ops import transform as reproject
-from shapely.geometry import Point, asShape
-
-
-print_lock = threading.Lock()
+from shapely.geometry import Point, asShape, LineString
+from geom import cut, cut2
 
 class trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -55,14 +50,29 @@ class trip(object):
 		(bid,did,rid,vid,last_seen) = db.get_trip(trip_id)
 		return clss(trip_id,bid,did,rid,vid,last_seen)
 
+	def add_point(self,lon,lat,etime):
+		"""add a vehicle location (which has just been observed) to the end 
+			of this trip"""
+		print lon, lat
+		point = {
+			# time past the epoch in seconds
+			'time':etime, 
+			# shapely geom in local meter-based projection
+			'geom': reproject( conf['projection'], Point(lon,lat) )
+		}
+		self.vehicles.append(point)
+
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
 		db.scrub_trip(self.trip_id)
 		# get vehicle records and make geometry objects
 		self.vehicles = db.get_vehicles(self.trip_id)
+		if len(self.vehicles) < 5: # km
+			return db.ignore_trip(self.trip_id,'too few vehicles')
 		for v in self.vehicles:
 			v['geom'] = loadWKB(v['geom'],hex=True)
-			v['ignore'] = False
+		# update the pre-cleaning geometry
+		db.set_trip_orig_geom(self.trip_id,self.get_geom())
 		# calculate vector of segment speeds
 		self.segment_speeds = self.get_segment_speeds()
 		# check for very short trips
@@ -71,14 +81,23 @@ class trip(object):
 		# check for errors and attempt to correct them
 		while self.has_errors():
 			# make sure it's still long enough to bother with
-			if len(self.vehicles) < 3:
-				return db.ignore_trip(self.trip_id,'error processing made too short')
+			if len(self.vehicles) < 5:
+				return db.ignore_trip(self.trip_id,'processing made too short')
 			# still long enough to try fixing
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = self.get_segment_speeds()
 		# trip is clean, so store the cleaned line and begin matching
+		db.set_trip_clean_geom(self.block_id,self.get_geom())
 		self.match()
+
+	def get_geom(self):
+		"""return a clean WKB geometry string using all vehicles
+			in the local projection"""
+		line = []
+		for v in self.vehicles:
+			line.append(v['geom'])
+		return dumpWKB(LineString(line),hex=True)
 
 	def get_segment_speeds(self):
 		"""return speeds (kmph) on the segments between vehicles
@@ -119,11 +138,11 @@ class trip(object):
 		# and be sure to projejct it correctly...
 		self.match_geom = reproject( conf['projection'], self.match_geom )
 
-#		db.add_trip_match(
-#			self.trip_id,
-#			self.match_confidence,
-#			json.dumps(match['geometry'])
-#		)
+		db.add_trip_match(
+			self.trip_id,
+			self.match_confidence,
+			json.dumps(match['geometry'])
+		)
 
 		# get the times for the waypoints from the vehicle locations
 		# compare to the corresponding points on the matched line 
@@ -133,8 +152,8 @@ class trip(object):
 			# that is why there is a 'try' here. 
 			try:
 				self.waypoints.append({
-					't':vehicle['time'],
-					'm':self.match_geom.project( vehicle['geom'], normalized=True )
+					'time':vehicle['time'],
+					'cum_dist':self.match_geom.project( vehicle['geom'], normalized=True )
 				})
 			except:
 				pass
@@ -153,7 +172,7 @@ class trip(object):
 		]
 		for stop in self.stops:
 			# find position on line
-			stop['m'] = self.match_geom.project( 
+			stop['measure'] = self.match_geom.project( 
 				stop['geom'], 
 				normalized=True 
 			)
@@ -257,16 +276,16 @@ class trip(object):
 		for point in self.waypoints:
 			if first:
 				first = False
-				m1 = point['m'] # zero
-				t1 = point['t'] # time
+				m1 = point['cum_dist'] # zero
+				t1 = point['time'] # time
 				continue
-			m2 = point['m']
-			t2 = point['t']
-			if m1 <= stop['m'] <= m2:	# intersection is at or between these points
+			m2 = point['cum_dist']
+			t2 = point['time']
+			if m1 <= stop['measure'] <= m2:	# intersection is at or between these points
 				# interpolate the time
-				if stop['m'] == m1:
+				if stop['measure'] == m1:
 					return t1
-				percent_of_segment = (stop['m'] - m1) / (m2 - m1)
+				percent_of_segment = (stop['measure'] - m1) / (m2 - m1)
 				additional_time = percent_of_segment * (t2 - t1) 
 				return t1 + additional_time
 			# create the segment for the next iteration
@@ -276,12 +295,11 @@ class trip(object):
 		# between any waypoints. This is probably a precision issue and the 
 		# stop should be right off one of the ends. Add 20 seconds as a 
 		# guestimate for extra time
-		if stop['m'] == 0:
-			return self.waypoints[0]['t'] - 20
-		elif stop['m'] == 1:
-			return self.waypoints[-1]['t'] + 20
+		if stop['measure'] == 0:
+			return self.waypoints[0]['time'] - 20
+		# vv stop is off the end
 		else:
-			print '\t\tstop thing failed??'
-		return None
+			print '\t\tstop off by',round(stop['measure'] - self.waypoints[-1]['cum_dist'],5),'meters for block',self.trip_id
+			return self.waypoints[-1]['time'] + 20
 
 
