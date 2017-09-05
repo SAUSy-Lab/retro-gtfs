@@ -25,13 +25,12 @@ def cursor():
 def new_trip_id():
 	"""get a next trip_id to start from, defaulting to 1"""
 	c = cursor()
-	c.execute("SELECT MAX(trip_id) FROM nb_vehicles;")
+	c.execute("SELECT MAX(trip_id) FROM nb_trips;")
 	try:
 		(trip_id,) = c.fetchone()
-		trip_id += 1
+		return trip_id + 1
 	except:
-		trip_id = 1
-	return trip_id
+		return 1
 
 def new_block_id():
 	"""get a next block_id to start from, defaulting to 1"""
@@ -39,28 +38,19 @@ def new_block_id():
 	c.execute("SELECT MAX(block_id) FROM nb_trips;")
 	try:
 		(block_id,) = c.fetchone()
-		block_id += 1
+		return block_id + 1
 	except:
-		block_id = 1
-	return block_id
+		return 1
 
 def empty_tables():
 	"""clear the tables"""
 	c = cursor()
 	c.execute("""
 		TRUNCATE nb_trips;
-		TRUNCATE nb_vehicles;
 		TRUNCATE nb_stop_times;
 		TRUNCATE nb_directions;
 		TRUNCATE nb_stops;
 	""")
-
-def copy_vehicles(filename):
-	"""copy a CSV of vehicle records into the nb_vehicles table"""
-	c = cursor()
-	c.execute("""
-		COPY nb_vehicles (trip_id,seq,lon,lat,report_time) FROM %s CSV;
-	""",(filename,))
 
 def trip_length(trip_id):
 	"""return the length of the trip in KM"""
@@ -79,18 +69,13 @@ def trip_length(trip_id):
 		print 'trip_length() error'
 		return 0
 
-def delete_trip(trip_id,reason=None):
-	"""mask for ignore_trip"""
-	ignore_trip(trip_id,reason)
-
 def ignore_trip(trip_id,reason=None):
 	"""mark a trip to be ignored"""
 	c = cursor()
 	c.execute("""
-		UPDATE nb_vehicles SET ignore = TRUE WHERE trip_id = %s;
 		UPDATE nb_trips SET ignore = TRUE WHERE trip_id = %s;
 		DELETE FROM nb_stop_times WHERE trip_id = %s;
-	""",(trip_id,trip_id,trip_id) )
+	""",(trip_id,trip_id) )
 	if reason:
 		flag_trip(trip_id,reason)
 	return
@@ -336,11 +321,6 @@ def scrub_trip(trip_id):
 			ignore = FALSE 
 		WHERE trip_id = %s;
 
-		-- Vehicles table
-		UPDATE nb_vehicles SET
-			ignore = FALSE
-		WHERE trip_id = %s;
-
 		-- Stop-Times table
 		DELETE FROM nb_stop_times 
 		WHERE trip_id = %s;
@@ -350,6 +330,7 @@ def scrub_trip(trip_id):
 
 
 def get_trip(trip_id):
+	# TODO eliminate dependence on nb_vehicles
 	"""return the attributes of a stored trip necessary 
 		for the construction of a new trip object"""
 	c = cursor()
@@ -398,27 +379,27 @@ def trip_exists(trip_id):
 	return existence
 
 
-def get_vehicles(trip_id):
-	"""returns full projected vehicle linestring and times"""
-	c = cursor()
-	# get the trip geometry and timestamps
-	c.execute("""
-		SELECT
-			uid, lat, lon, report_time,
-			ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917) AS geom
-		FROM nb_vehicles 
-		WHERE trip_id = %s
-		ORDER BY report_time ASC;
-	""",(trip_id,))
-	vehicles = []
-	for (uid,lat,lon,time,geom) in c.fetchall():
-		vehicles.append({
-			'uid':	uid,
-			'geom':	geom,
-			'time':	time,
-			'lat':	lat,
-			'lon':	lon
-		})
-	return vehicles
+#def get_vehicles(trip_id):
+#	"""returns full projected vehicle linestring and times"""
+#	c = cursor()
+#	# get the trip geometry and timestamps
+#	c.execute("""
+#		SELECT
+#			uid, lat, lon, report_time,
+#			ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917) AS geom
+#		FROM nb_vehicles 
+#		WHERE trip_id = %s
+#		ORDER BY report_time ASC;
+#	""",(trip_id,))
+#	vehicles = []
+#	for (uid,lat,lon,time,geom) in c.fetchall():
+#		vehicles.append({
+#			'uid':	uid,
+#			'geom':	geom,
+#			'time':	time,
+#			'lat':	lat,
+#			'lon':	lon
+#		})
+#	return vehicles
 
 

@@ -39,7 +39,7 @@ class trip(object):
 
 	@classmethod
 	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
-		"""create wholly new trip object, providing all paremeters"""
+		"""create wholly new trip object, providing all parameters"""
 		# store instance in the DB
 		db.insert_trip( trip_id, block_id, route_id, direction_id, vehicle_id )
 		return clss(trip_id,block_id,direction_id,route_id,vehicle_id,last_seen)
@@ -47,30 +47,39 @@ class trip(object):
 	@classmethod
 	def fromDB(clss,trip_id):
 		"""construct a trip object from an existing record in the database"""
+		# construct the trip object from info in the DB
 		(bid,did,rid,vid,last_seen) = db.get_trip(trip_id)
-		return clss(trip_id,bid,did,rid,vid,last_seen)
+		trip = clss(trip_id,bid,did,rid,vid,last_seen)
+		# this is being reprocessed potentially, so 
+		# clean up any other traces of this trip in the database
+		db.scrub_trip(trip_id)
+		# TODO need to get vehicle records from linestring now
+		#trip.vehicles = 
+		# return the trip object
+		return trip
 
 	def add_point(self,lon,lat,etime):
 		"""add a vehicle location (which has just been observed) to the end 
 			of this trip"""
-		print lon, lat
 		point = {
 			# time past the epoch in seconds
 			'time':etime, 
 			# shapely geom in local meter-based projection
-			'geom': reproject( conf['projection'], Point(lon,lat) )
+			'geom': reproject( conf['projection'], Point(lon,lat) ),
+			# these are for input into OSRM without reprojection
+			'lon':lon,
+			'lat':lat
 		}
 		self.vehicles.append(point)
 
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
-		db.scrub_trip(self.trip_id)
 		# get vehicle records and make geometry objects
-		self.vehicles = db.get_vehicles(self.trip_id)
+#		self.vehicles = db.get_vehicles(self.trip_id)
 		if len(self.vehicles) < 5: # km
 			return db.ignore_trip(self.trip_id,'too few vehicles')
-		for v in self.vehicles:
-			v['geom'] = loadWKB(v['geom'],hex=True)
+#		for v in self.vehicles:
+#			v['geom'] = loadWKB(v['geom'],hex=True)
 		# update the pre-cleaning geometry
 		db.set_trip_orig_geom(self.trip_id,self.get_geom())
 		# calculate vector of segment speeds

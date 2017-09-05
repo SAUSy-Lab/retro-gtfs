@@ -2,17 +2,6 @@
 create tables necessary for NextBus driven realtime GTFS project
 */
 
-/*
-DROP TABLE IF EXISTS nb_routes;
-CREATE TABLE nb_routes (
-	route_id varchar PRIMARY KEY,
-	route_short_name varchar, -- required
-	route_long_name varchar, -- required
-	route_type integer, -- required
-	title varchar -- not required
-);
-*/
-
 DROP TABLE IF EXISTS nb_stops;
 CREATE TABLE nb_stops (
 	uid serial PRIMARY KEY,
@@ -42,6 +31,7 @@ CREATE TABLE nb_directions (
 CREATE INDEX nbd_idx ON nb_directions (direction_id);
 CLUSTER nb_directions USING nbd_idx;
 
+/*
 DROP TABLE IF EXISTS nb_vehicles;
 CREATE TABLE nb_vehicles (
 	uid serial PRIMARY KEY, -- bigserial if more than ~2B records needed
@@ -54,34 +44,35 @@ CREATE TABLE nb_vehicles (
 );
 CREATE INDEX nbv_idx ON nb_vehicles (trip_id);
 CLUSTER nb_vehicles USING nbv_idx;
+*/
 
 DROP TABLE IF EXISTS nb_trips;
 CREATE TABLE nb_trips (
 	trip_id integer PRIMARY KEY,
+	orig_geom geometry(LINESTRING,26917),	-- geometry of all points
+	times double precision[], -- sequential report_times, corresponding to points on orig_geom
 	route_id integer,
-	direction_id varchar(35),
-	service_id integer,
-	vehicle_id integer,
+	direction_id varchar,
+	service_id smallint,
+	vehicle_id varchar,
 	block_id integer,
 	match_confidence real,
+	ignore boolean DEFAULT FALSE,	-- ignore this trip during processing?
+	-- debugging fields
 	match_geom geometry(LINESTRING,26917), -- map-matched route geometry
-	orig_geom  geometry(LINESTRING,26917),	-- geometry of all points TODO kill
-	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching TODO kill
-	problem varchar DEFAULT '',	-- description of any problems that arise
-	ignore boolean DEFAULT FALSE	-- ignore this vehicle during processing?
+	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching
+	problem varchar DEFAULT ''	-- description of any problems that arise
 );
 CREATE INDEX nbt_idx ON nb_trips (trip_id);
 CLUSTER nb_trips USING nbt_idx;
 
 DROP TABLE IF EXISTS nb_stop_times;
 CREATE TABLE nb_stop_times(
-	uid serial PRIMARY KEY,
 	trip_id integer,
 	stop_id varchar,
 	stop_sequence integer,
 	etime double precision, -- epoch time at greenwich
-	arrival_time interval HOUR TO SECOND,
-	departure_time interval HOUR TO SECOND
+	arrival_time interval HOUR TO SECOND
 );
 CREATE INDEX nbst_idx ON nb_stop_times (trip_id);
 CLUSTER nb_stop_times USING nbst_idx;
