@@ -203,7 +203,6 @@ def finish_trip(trip):
 		seq += 1
 	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
 	c.execute("INSERT INTO nb_stop_times (trip_id, stop_id, etime, stop_sequence) VALUES " + args_str)
-
 	# get the first start time
 	t = trip.stops[0]['arrival']
 	# find the etime of the first moment of the day
@@ -216,14 +215,6 @@ def finish_trip(trip):
 	c.execute("""
 		UPDATE nb_trips SET service_id = %s WHERE trip_id = %s;
 	""",(service_id,trip.trip_id))
-
-	# set the arrival and departure times
-	c.execute("""
-		UPDATE nb_stop_times SET 
-			arrival_time = ROUND(etime - %s) * INTERVAL '1 second',
-			departure_time = ROUND(etime - %s) * INTERVAL '1 second'
-		WHERE trip_id = %s;
-	""",(day_start,day_start,trip.trip_id))
 
 
 def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
