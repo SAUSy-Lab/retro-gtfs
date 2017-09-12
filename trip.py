@@ -80,8 +80,12 @@ class trip(object):
 			return db.ignore_trip(self.trip_id,'too few vehicles')
 #		for v in self.vehicles:
 #			v['geom'] = loadWKB(v['geom'],hex=True)
-		# update the pre-cleaning geometry
-		db.set_trip_orig_geom(self.trip_id,self.get_geom())
+		# store the GPS points as an array of times and a linestring
+		# this is to be as the trip was recorded before cleaning, etc
+		times = []
+		for v in self.vehicles:
+			times.append(v['time'])
+		db.store_points(self.trip_id,self.get_geom(),times)
 		# calculate vector of segment speeds
 		self.segment_speeds = self.get_segment_speeds()
 		# check for very short trips

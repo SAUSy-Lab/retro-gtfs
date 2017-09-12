@@ -154,19 +154,22 @@ def get_stops(direction_id):
 	return stops
 
 
-def set_trip_orig_geom(trip_id,localWKBgeom):
-	"""ALL initial vehicles go in this line"""
+def store_points(trip_id,localWKBgeom,etimes_list):
+	"""this should be run on the inital, live collected trip instance.
+		It stores the time and location of every given report for this trip."""
 	c = cursor()
 	c.execute(
 		"""
-			UPDATE {trips} 
-			SET orig_geom = ST_SetSRID( %(geom)s::geometry, %(EPSG)s )
+			UPDATE {trips} SET 
+				orig_geom = ST_SetSRID( %(geom)s::geometry, %(EPSG)s ),
+				times = %(times)s
 			WHERE trip_id = %(trip_id)s;
 		""".format(**conf['db']['tables']),
 		{
 			'trip_id':trip_id,
 			'geom':localWKBgeom,
-			'EPSG':conf['localEPSG']
+			'EPSG':conf['localEPSG'],
+			'times':etimes_list
 		}
 	)
 
