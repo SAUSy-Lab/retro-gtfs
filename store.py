@@ -19,7 +19,7 @@ def time_loop():
 		without stopping. Calls some other function after setting 
 		itself to go off again"""
 	threading.Timer( 10, time_loop ).start() # int is delay in seconds
-	# request neew vehicles and store them
+	# request new vehicles and store them
 	get_new_vehicles()
 	if getRoutes:
 		# request a route update at random, with p = 0.1

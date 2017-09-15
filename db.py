@@ -191,33 +191,33 @@ def set_trip_clean_geom(trip_id,localWKBgeom):
 	)
 
 
-
-def finish_trip(trip):
-	"""1. store stop info in stop_times
-		2. determine the service_id and set it in nb_trips.
-		3. set the arrival and departure times based on the day start"""
+def store_stop_times(trip_id,stops):
+	"""store the stop times for a trip"""
 	c = cursor()
 	# insert the stops
 	records = []
 	seq = 1
-	for stop in trip.stops:
+	for stop in stops:
 		# list of tuples
-		records.append( (trip.trip_id,stop['id'],stop['arrival'],seq) )
+		records.append( (trip_id,stop['id'],stop['arrival'],seq) )
 		seq += 1
 	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
 	c.execute("INSERT INTO nb_stop_times (trip_id, stop_id, etime, stop_sequence) VALUES " + args_str)
-	# get the first start time
-	t = trip.stops[0]['arrival']
-	# find the etime of the first moment of the day
-	# first center the day on local time
-	tlocal = t - 4*3600
-	from_dawn = tlocal % (24*3600)
-	# service_id is distinct to local day
-	service_id = (tlocal-from_dawn)/(24*3600)
-	day_start = t - from_dawn
-	c.execute("""
-		UPDATE nb_trips SET service_id = %s WHERE trip_id = %s;
-	""",(service_id,trip.trip_id))
+
+
+def set_service_id(trip_id,service_id):
+	"""set the service_id of a trip"""
+	c.execute(
+		"""
+			UPDATE {trips} 
+			SET service_id = %(service_id)s 
+			WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{
+			'service_id':service_id,
+			'trip_id':trip.trip_id
+		}
+	)
 
 
 def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
