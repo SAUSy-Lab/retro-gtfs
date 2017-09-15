@@ -25,7 +25,11 @@ def cursor():
 def new_trip_id():
 	"""get a next trip_id to start from, defaulting to 1"""
 	c = cursor()
-	c.execute("SELECT MAX(trip_id) FROM nb_trips;")
+	c.execute(
+		"""
+			SELECT MAX(trip_id) FROM {trips};
+		""".format(**conf['db']['tables'])
+	)
 	try:
 		(trip_id,) = c.fetchone()
 		return trip_id + 1
@@ -35,7 +39,11 @@ def new_trip_id():
 def new_block_id():
 	"""get a next block_id to start from, defaulting to 1"""
 	c = cursor()
-	c.execute("SELECT MAX(block_id) FROM nb_trips;")
+	c.execute(
+		"""
+			SELECT MAX(block_id) FROM {trips};
+		""".format(**conf['db']['tables'])
+	)
 	try:
 		(block_id,) = c.fetchone()
 		return block_id + 1
@@ -45,49 +53,41 @@ def new_block_id():
 def empty_tables():
 	"""clear the tables"""
 	c = cursor()
-	c.execute("""
-		TRUNCATE nb_trips;
-		TRUNCATE nb_stop_times;
-		TRUNCATE nb_directions;
-		TRUNCATE nb_stops;
-	""")
+	c.execute(
+		"""
+			TRUNCATE {trips}, {stop_times}, {directions}, {stops};
+		""".format(**conf['db']['tables'])
+	)
 
-def trip_length(trip_id):
-	"""return the length of the trip in KM"""
-	c = cursor()
-	c.execute("""
-		SELECT 
-			ST_Length(ST_MakeLine(location ORDER BY seq)) / 1000
-		FROM nb_vehicles 
-		WHERE trip_id = %s AND NOT ignore
-		GROUP BY trip_id;
-	""",(trip_id,))
-	if c.rowcount == 1:
-		(km,) = c.fetchone()
-		return km
-	else: 
-		print 'trip_length() error'
-		return 0
 
 def ignore_trip(trip_id,reason=None):
 	"""mark a trip to be ignored"""
 	c = cursor()
-	c.execute("""
-		UPDATE nb_trips SET ignore = TRUE WHERE trip_id = %s;
-		DELETE FROM nb_stop_times WHERE trip_id = %s;
-	""",(trip_id,trip_id) )
+	c.execute(
+		"""
+			UPDATE {trips} SET ignore = TRUE WHERE trip_id = %(trip_id)s;
+			DELETE FROM {stop_times} WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{ 'trip_id': trip_id } 
+	)
 	if reason:
 		flag_trip(trip_id,reason)
 	return
 
 
 def flag_trip(trip_id,problem_description_string):
-	"""populate 'problem' field of trip table: something must 
-		have gone wrong"""
+	"""Populate the 'problem' field of trip table: something must 
+		have gone wrong and this tells us what."""
 	c = cursor()
 	c.execute(
-		"UPDATE nb_trips SET problem = problem || %s WHERE trip_id = %s;",
-		(problem_description_string,trip_id,)
+		"""
+			UPDATE {trips} SET problem = problem || %(description)s 
+			WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{
+			'description':problem_description_string,
+			'trip_id':trip_id
+		}
 	)
 
 
@@ -96,27 +96,44 @@ def add_trip_match(trip_id,confidence,geometry_match):
 	"""update the trip record with it's matched geometry"""
 	c = cursor()
 	# store the given values
-	c.execute("""
-		UPDATE nb_trips
-		SET  
-			match_confidence = %s,
-			match_geom = ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%s),4326),26917)
-		WHERE trip_id  = %s;
-		""",( confidence, geometry_match, trip_id)
+	c.execute(
+		"""
+			UPDATE {trips}
+			SET  
+				match_confidence = %(confidence)s,
+				match_geom = ST_Transform(
+					ST_SetSRID(ST_GeomFromGeoJSON( %(match)s ),4326),
+					%(localEPSG)s
+				)
+			WHERE trip_id  = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{
+			'localEPSG':conf['localEPSG'],
+			'confidence':confidence, 
+			'match':geometry_match, 
+			'trip_id':trip_id
+		}
 	)
 
 
-def insert_trip(tid,bid,rid,did,vid):
-	"""store the trip in the database"""
+def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id):
+	"""Store the basics of the trip in the database."""
 	c = cursor()
 	# store the given values
-	c.execute("""
-		INSERT INTO nb_trips 
-			( trip_id, block_id, route_id, direction_id, vehicle_id ) 
-		VALUES 
-			( %s,%s,%s,%s,%s );
-	""",
-		( tid, bid, rid, did, vid)
+	c.execute(
+		"""
+			INSERT INTO {trips} 
+				( trip_id, block_id, route_id, direction_id, vehicle_id ) 
+			VALUES 
+				( %(trip_id)s,%(block_id)s,%(route_id)s,%(direction_id)s,%(vehicle_id)s );
+		""".format(**conf['db']['tables']),
+		{
+			'trip_id':trip_id, 
+			'block_id':block_id, 
+			'route_id':route_id, 
+			'direction_id':direction_id, 
+			'vehicle_id':vehicle_id
+		}
 	)
 
 
@@ -126,25 +143,30 @@ def get_stops(direction_id):
 		and their attributes for the direction, returning 
 		as a dictionary"""
 	c = cursor()
-	c.execute("""
-		WITH sub AS (
-			SELECT
-				unnest(stops) AS stop_id
-			FROM nb_directions 
-			WHERE
-				direction_id = %s AND
-				report_time = (
-					SELECT MAX(report_time) -- most recent 
-					FROM nb_directions 
-					WHERE direction_id = %s
-				)
-		)
-		SELECT 
-			stop_id,
-			the_geom
-		FROM nb_stops
-		WHERE stop_id IN (SELECT stop_id FROM sub);
-	""",(direction_id,direction_id))
+	c.execute(
+		"""
+			WITH sub AS (
+				SELECT
+					unnest(stops) AS stop_id
+				FROM {directions} 
+				WHERE
+					direction_id = %(direction_id)s AND
+					report_time = (
+						SELECT MAX(report_time) -- most recent 
+						FROM {directions} 
+						WHERE direction_id = %(direction_id)s
+					)
+			)
+			SELECT 
+				stop_id,
+				the_geom
+			FROM {stops}
+			WHERE stop_id IN (SELECT stop_id FROM sub);
+		""".format(**conf['db']['tables']),
+		{
+			'direction_id':direction_id
+		}
+	)
 	stops = []
 	for (stop_id,geom) in c.fetchall():
 		stops.append({
@@ -161,14 +183,14 @@ def store_points(trip_id,localWKBgeom,etimes_list):
 	c.execute(
 		"""
 			UPDATE {trips} SET 
-				orig_geom = ST_SetSRID( %(geom)s::geometry, %(EPSG)s ),
+				orig_geom = ST_SetSRID( %(geom)s::geometry, %(localEPSG)s ),
 				times = %(times)s
 			WHERE trip_id = %(trip_id)s;
 		""".format(**conf['db']['tables']),
 		{
 			'trip_id':trip_id,
 			'geom':localWKBgeom,
-			'EPSG':conf['localEPSG'],
+			'localEPSG':conf['localEPSG'],
 			'times':etimes_list
 		}
 	)
@@ -207,6 +229,7 @@ def store_stop_times(trip_id,stops):
 
 def set_service_id(trip_id,service_id):
 	"""set the service_id of a trip"""
+	c = cursor()
 	c.execute(
 		"""
 			UPDATE {trips} 
@@ -215,7 +238,7 @@ def set_service_id(trip_id,service_id):
 		""".format(**conf['db']['tables']),
 		{
 			'service_id':service_id,
-			'trip_id':trip.trip_id
+			'trip_id':trip_id
 		}
 	)
 
@@ -228,34 +251,49 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 		store it with the current time."""
 	c = cursor()
 	# see if precisely this record already exists
-	c.execute("""
-		SELECT * FROM nb_stops
-		WHERE 
-			stop_id = %s AND
-			stop_name = %s AND
-			stop_code = %s AND
-			ABS(lon - %s::numeric) <= 0.0001 AND
-			ABS(lat - %s::numeric) <= 0.0001;
-	""",( stop_id,stop_name,stop_code,lon,lat ) )
+	c.execute(
+		"""
+			SELECT * 
+			FROM {stops}
+			WHERE 
+				stop_id = %(stop_id)s AND
+				stop_name = %(stop_name)s AND
+				stop_code = %(stop_code)s AND
+				ABS(lon - %(lon)s::numeric) <= 0.0001 AND
+				ABS(lat - %(lat)s::numeric) <= 0.0001;
+		""".format(**conf['db']['tables']),
+		{
+			'stop_id':stop_id,
+			'stop_name':stop_name,
+			'stop_code':stop_code,
+			'lon':lon,
+			'lat':lat
+		}
+	)
 	# if any result, we already have this stop
 	if c.rowcount > 0:
 		return
 	# store the stop
-	c.execute("""
-		INSERT INTO nb_stops ( 
-			stop_id, stop_name, stop_code, 
-			the_geom, 
-			lon, lat, report_time 
-		) 
-		VALUES ( 
-			%s, %s, %s, 
-			ST_Transform( ST_SetSRID( ST_MakePoint(%s, %s),4326),26917 ),
-			%s, %s, NOW()
-		)""",( 
-			stop_id,stop_name,stop_code,
-			lon,lat,
-			lon,lat #,time
-		) )
+	c.execute(
+		"""
+			INSERT INTO nb_stops ( 
+				stop_id, stop_name, stop_code, 
+				the_geom, 
+				lon, lat, report_time 
+			) 
+			VALUES ( 
+				%(stop_id)s, %(stop_name)s, %(stop_code)s, 
+				ST_Transform( ST_SetSRID( ST_MakePoint(%(lon)s, %(lat)s),4326),%(localEPSG)s ),
+				%(lon)s, %(lat)s, NOW()
+			)""".format(**conf['db']['tables']),
+			{ 
+				'stop_id':stop_id,
+				'stop_name':stop_name,
+				'stop_code':stop_code,
+				'lon':lon,
+				'lat':lat,
+				'localEPSG':conf['localEPSG']
+			} )
 
 
 def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
@@ -266,33 +304,46 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 		If not, store it with the current time."""
 	c = cursor()
 	# see if exactly this record already exists
-	c.execute("""
-		SELECT * FROM nb_directions
-		WHERE
-			route_id = %s AND
-			direction_id = %s AND
-			title = %s AND
-			name = %s AND
-			branch = %s AND
-			useforui = %s AND
-			stops = %s;
-	""",(route_id,did,title,name,branch,useforui,stops))
+	c.execute(
+		"""
+			SELECT * FROM {directions}
+			WHERE
+				route_id = %s AND
+				direction_id = %s AND
+				title = %s AND
+				name = %s AND
+				branch = %s AND
+				useforui = %s AND
+				stops = %s;
+		""".format(**conf['db']['tables']),
+		(
+			route_id,
+			did,
+			title,
+			name,
+			branch,
+			useforui,
+			stops
+		)
+	)
 	if c.rowcount > 0:
 		return # already have the record
 	# store the data
-	c.execute("""
-		INSERT INTO nb_directions 
-			( 
-				route_id, direction_id, title, 
-				name, branch, useforui, 
-				stops, report_time
-			) 
-		VALUES 
-			( 
-				%s, %s, %s,
-				%s, %s, %s, 
-				%s, NOW()
-			)""",(
+	c.execute(
+		"""
+			INSERT INTO {directions} 
+				( 
+					route_id, direction_id, title, 
+					name, branch, useforui, 
+					stops, report_time
+				) 
+			VALUES 
+				( 
+					%s, %s, %s,
+					%s, %s, %s, 
+					%s, NOW()
+				)""".format(**conf['db']['tables']),
+			(
 				route_id,did,title,
 				name,branch,useforui,
 				stops
@@ -304,21 +355,22 @@ def scrub_trip(trip_id):
 	"""Un-mark any flag fields and leave the DB record 
 		as though newly collected and unprocessed"""
 	c = cursor()
-	c.execute("""
-		-- Trips table
-		UPDATE nb_trips SET 
-			match_confidence = NULL,
-			match_geom = NULL,
-			orig_geom = NULL,
-			clean_geom = NULL,
-			problem = '',
-			ignore = FALSE 
-		WHERE trip_id = %s;
-
-		-- Stop-Times table
-		DELETE FROM nb_stop_times 
-		WHERE trip_id = %s;
-		""",(trip_id,trip_id,trip_id,)
+	c.execute(
+		"""
+			-- Trips table
+			UPDATE nb_trips SET 
+				match_confidence = NULL,
+				match_geom = NULL,
+				orig_geom = NULL,
+				clean_geom = NULL,
+				problem = '',
+				ignore = FALSE 
+			WHERE trip_id = %(trip_id)s;
+			-- Stop-Times table
+			DELETE FROM nb_stop_times 
+			WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{'trip_id':trip_id}
 	)
 
 
@@ -356,18 +408,23 @@ def get_trip_ids(min_id,max_id):
 			WHERE trip_id BETWEEN %(min)s AND %(max)s 
 			ORDER BY trip_id ASC
 		""".format(**conf['db']['tables']),
-		{'min':min_id,'max':max_id}
+		{
+			'min':min_id,
+			'max':max_id
+		}
 	)
 	return [ result for (result,) in c.fetchall() ]
 
 
 def trip_exists(trip_id):
-	"""check whether a trip exists in the database, 
-		returning boolean"""
+	"""Check whether a trip exists in the database, 
+		returning boolean."""
 	c = cursor()
-	c.execute("""
-		SELECT EXISTS (SELECT * FROM nb_trips WHERE trip_id = %s)
-		""",(trip_id,)
+	c.execute(
+		"""
+			SELECT EXISTS (SELECT * FROM {trips} WHERE trip_id = %s)
+		""".format(**conf['db']['tables']),
+		{ 'trip_id':trip_id}
 	)
 	(existence,) = c.fetchone()
 	return existence
