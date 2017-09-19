@@ -1,7 +1,13 @@
 ﻿/*
-create tables necessary for NextBus driven realtime GTFS project
+	This defines the schema necessary for NextBus driven realtime GTFS project, 
+	in the devlopment case, for the Toronto Transit Commission. 
+	Table names may be changed, but this must be indicated in conf.py.
 */
 
+
+/*
+	equivalent to GTFS stops table
+*/
 DROP TABLE IF EXISTS nb_stops;
 CREATE TABLE nb_stops (
 	uid serial PRIMARY KEY,
@@ -16,6 +22,11 @@ CREATE TABLE nb_stops (
 CREATE INDEX nbs_idx ON nb_stops (stop_id);
 CLUSTER nb_stops USING nbs_idx;
 
+/*
+	Similar to GTFS trips table, in that it stores sequences of 
+	stops to be served by a trip and these can be matched to a 
+	direction_id on a particular vehicle
+*/
 DROP TABLE IF EXISTS nb_directions;
 CREATE TABLE nb_directions (
 	uid serial PRIMARY KEY,
@@ -32,20 +43,10 @@ CREATE INDEX nbd_idx ON nb_directions (direction_id);
 CLUSTER nb_directions USING nbd_idx;
 
 /*
-DROP TABLE IF EXISTS nb_vehicles;
-CREATE TABLE nb_vehicles (
-	uid serial PRIMARY KEY, -- bigserial if more than ~2B records needed
-	seq smallint,
-	trip_id integer,
-	report_time double precision, -- epoch time of report
-	lat numeric,
-	lon numeric,
-	ignore boolean DEFAULT FALSE -- ignore this vehicle during processing?
-);
-CREATE INDEX nbv_idx ON nb_vehicles (trip_id);
-CLUSTER nb_vehicles USING nbv_idx;
+	Data on vehilce locations fetched from the API gets stored here along 
+	with map-matched geometries. When extracted into GTFS, most feilds here 
+	are ignored. "Trips" are the primary object of the data processing sequence.  
 */
-
 DROP TABLE IF EXISTS nb_trips;
 CREATE TABLE nb_trips (
 	trip_id integer PRIMARY KEY,
@@ -66,6 +67,9 @@ CREATE TABLE nb_trips (
 CREATE INDEX nbt_idx ON nb_trips (trip_id);
 CLUSTER nb_trips USING nbt_idx;
 
+/*
+	Where interpolated stop times are stored for each trip. 
+*/
 DROP TABLE IF EXISTS nb_stop_times;
 CREATE TABLE nb_stop_times(
 	trip_id integer,
