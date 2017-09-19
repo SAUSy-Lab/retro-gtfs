@@ -101,7 +101,7 @@ class trip(object):
 			# update the segment speeds for the next iteration
 			self.segment_speeds = self.get_segment_speeds()
 		# trip is clean, so store the cleaned line and begin matching
-		db.set_trip_clean_geom(self.block_id,self.get_geom())
+		db.set_trip_clean_geom(self.trip_id,self.get_geom())
 		self.match()
 
 	def get_geom(self):
