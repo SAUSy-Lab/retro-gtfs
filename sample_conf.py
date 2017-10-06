@@ -2,21 +2,32 @@
 # set the parameters unique to your setup below
 # then rename this file to "conf.py"
 
+# for handling projections
+from functools import partial
+import pyproj
+
 conf = {
 	# PostgreSQL database connnection
 	'db':
 		{
-			'host':'',
+			'host':'localhost',
 			'name':'',
 			'user':'',
-			'password':''
+			'password':'',
+			'tables':{
+				# these are SQL-safe table names used directly in queries
+				'trips':'prefix_trips',
+				'stops':'prefix_stops',
+				'stop_times':'prefix_stop_times',
+				'directions':'prefix_directions'
+			}
 		},
 	# agency tag for the Nextbus API
-	'agency':'',
-	# Where is the ORSM server? 
+	'agency':'ttc',
+	# Where is the ORSM server? Give the root url
 	'OSRMserver':{
-		'url':'http://???',
-		'timeout':10
+		'url':'http://201.167.182.17:5002',
+		'timeout':10 # seconds
 	},
 	# function for projecting from lat-lon for shapely
 	# http://toblerity.org/shapely/manual.html#other-transformations
@@ -24,8 +35,10 @@ conf = {
 	'projection':partial(
 		 pyproj.transform,
 		 pyproj.Proj('+init=EPSG:4326'),
-		 pyproj.Proj('+init=EPSG:26917')
+		 pyproj.Proj('+init=EPSG:32723')
 	),
+	'localEPSG':32723,
+	'timezone':-4,
 	# distance threshold for stop matching in meters
 	'stop_dist':30
 }
