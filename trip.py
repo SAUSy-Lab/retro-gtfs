@@ -14,49 +14,62 @@ class trip(object):
 		with one observed trip/track. Classmethods provide two 
 		different ways of instantiating."""
 
-	def __init__(self,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
-		"""initialization method, only accessed by the @classmethod's below"""
+	def __init__(self):
+		"""Initialization method, ONLY accessed by the two @classmethods below"""
 		# set initial attributes
-		self.trip_id = trip_id				# int
-		self.block_id = block_id			# int
-		self.direction_id = direction_id	# str
-		self.route_id = route_id			# int
-		self.vehicle_id = vehicle_id		# int
-		self.last_seen = last_seen			# last vehicle report (epoch time)
+		self.trip_id = -1				# int
+		self.block_id = -1			# int
+		self.direction_id = ''		# str
+		self.route_id = -1			# int
+		self.vehicle_id = -1			# int
+		self.last_seen = -1			# last vehicle report (epoch time)
 		# initialize sequence
-		self.seq = 1							# sequence which increments at each report
+		self.seq = 1					# sequence which increments at each report
 		# declare several vars for later in the matching process
-		self.speed_string = ""				# str
-		self.match_confidence = -1			# 0 - 1 real
-		self.stops = []						# not set until process()
-		self.segment_speeds = []			# reported speeds of all segments
-		self.waypoints = []					# points on the finallized trip only
-		self.length = 0						# length in meters of current string
-		self.vehicles = []					# ordered vehicle records
-		self.ignored_vehicles = []			# discarded records
-		self.problems = []					# running list of issues
-		self.match_geom = None				# map-matched linestring 
+		self.speed_string = ""		# str
+		self.match_confidence = -1	# 0 - 1 real
+		self.stops = []				# not set until process()
+		self.segment_speeds = []	# reported speeds of all segments
+		self.waypoints = []			# points on the finallized trip only
+		self.length = 0				# length in meters of current string
+		self.vehicles = []			# ordered vehicle records
+		self.ignored_vehicles = []	# discarded records
+		self.problems = []			# running list of issues
+		self.match_geom = None		# map-matched linestring 
 
 	@classmethod
 	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
 		"""create wholly new trip object, providing all parameters"""
-		# store instance in the DB
-		db.insert_trip( trip_id, block_id, route_id, direction_id, vehicle_id )
-		return clss(trip_id,block_id,direction_id,route_id,vehicle_id,last_seen)
+		# create an empty trip object
+		Trip = clss()
+		# set the inital attributes
+		Trip.trip_id = trip_id
+		Trip.block_id = block_id
+		Trip.direction_id = direction_id
+		Trip.route_id = route_id
+		Trip.vehicle_id = vehicle_id
+		Trip.last_seen = last_seen
+		# return the new object
+		return Trip
 
 	@classmethod
 	def fromDB(clss,trip_id):
-		"""construct a trip object from an existing record in the database"""
+		"""Construct a trip object from an existing record in the database."""
 		# construct the trip object from info in the DB
-		(bid,did,rid,vid,last_seen) = db.get_trip(trip_id)
-		trip = clss(trip_id,bid,did,rid,vid,last_seen)
-		# this is being reprocessed potentially, so 
-		# clean up any other traces of this trip in the database
+		dbta = db.get_trip_attributes(trip_id)
+		# create the object
+		Trip = clss()
+		# set the inital attributes
+		Trip.trip_id = trip_id
+		Trip.block_id = dbta['block_id']
+		Trip.direction_id = dbta['direction_id']
+		Trip.route_id = dbta['route_id']
+		Trip.vehicle_id = dbta['vehicle_id']
+		Trip.vehicles = dbta['points']
+		# this is being REprocessed so clean up any traces of the 
+		# result of earlier processing so that we have a fresh start
 		db.scrub_trip(trip_id)
-		# TODO need to get vehicle records from linestring now
-		#trip.vehicles = 
-		# return the trip object
-		return trip
+		return Trip
 
 	def add_point(self,lon,lat,etime):
 		"""add a vehicle location (which has just been observed) to the end 
@@ -72,20 +85,29 @@ class trip(object):
 		}
 		self.vehicles.append(point)
 
-	def process(self):
-		"""A trip has just ended. What do we do with it?"""
-		# get vehicle records and make geometry objects
-#		self.vehicles = db.get_vehicles(self.trip_id)
-		if len(self.vehicles) < 5: # km
-			return db.ignore_trip(self.trip_id,'too few vehicles')
-#		for v in self.vehicles:
-#			v['geom'] = loadWKB(v['geom'],hex=True)
-		# store the GPS points as an array of times and a linestring
-		# this is to be as the trip was recorded before cleaning, etc
+	def save(self):
+		"""Store a record of this trip in the DB. This allows us to 
+			reprocess as from the beginning with different parameters, 
+			data, etc. GPS points are stored as an array of times and 
+			a linestring. This function is to be called just before 
+			process() as data is being collected."""
 		times = []
 		for v in self.vehicles:
 			times.append(v['time'])
-		db.store_points(self.trip_id,self.get_geom(),times)
+		db.insert_trip(
+			self.trip_id,
+			self.block_id,
+			self.route_id, 
+			self.direction_id,
+			self.vehicle_id,
+			times,
+			self.get_geom()
+		)
+	
+	def process(self):
+		"""A trip has just ended. What do we do with it?"""
+		if len(self.vehicles) < 5: # km
+			return db.ignore_trip(self.trip_id,'too few vehicles')
 		# calculate vector of segment speeds
 		self.segment_speeds = self.get_segment_speeds()
 		# check for very short trips

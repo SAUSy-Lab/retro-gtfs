@@ -49,7 +49,6 @@ def get_new_vehicles():
 	server_time = (request_time + response_time) / 2
 	# list of trips to send for processing
 	ending_trips = []
-#	vehicles_to_store = []
 	# this is the whole big ol' parsed XML document
 	XML = ET.fromstring(response.text)
 	# get values from the XML
@@ -86,8 +85,6 @@ def get_new_vehicles():
 				# increment the trip and block counters
 				next_trip_id += 1
 				next_bid += 1
-#				# store the vehicle record
-#				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,report_time))
 				# done with this vehicle
 				continue
 			# we have a record for this vehicle, and it's been heard from recently
@@ -103,32 +100,17 @@ def get_new_vehicles():
 				fleet[vid].add_point(lon,lat,report_time)
 				# increment the trip counter
 				next_trip_id += 1
-#				# store the vehicle record
-#				vehicles_to_store.append((fleet[vid].trip_id,1,lon,lat,report_time))
 			else: # not a new trip, just add the vehicle
 				fleet[vid].add_point(lon,lat,report_time)
 				# then update the time and sequence
 				fleet[vid].last_seen = report_time
 				fleet[vid].seq += 1
-#				# and store the vehicle of course
-#				vehicles_to_store.append((
-#					fleet[vid].trip_id, 
-#					fleet[vid].seq,
-#					lon,lat,report_time
-#				))
 	# release the fleet lock
 	print len(fleet),'in fleet,',len(ending_trips),'ending trips'
-#	# create/open a temporary file to write the results to
-#	filename = path.abspath('temp')+'/'+threading.currentThread().getName()+'.csv'
-#	f = open(filename,'w+')
-#	# for each vehicle record
-#	for (tid,seq,lon,lat,etime) in vehicles_to_store:
-#		# write line to file
-#		f.write( str(tid)+','+str(seq)+','+str(lon)+','+str(lat)+','+str(etime)+'\n' )
-#	# close the file, copy it to the DB and delete it
-#	f.close()
-#	db.copy_vehicles(filename)
-#	remove(filename)
+	# store the trips which are ending
+	for some_trip in ending_trips:
+		if len(some_trip.vehicles) > 1:
+			some_trip.save()
 	# process the trips that are ending?
 	if doMatching:
 		for some_trip in ending_trips:

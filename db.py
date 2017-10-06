@@ -1,6 +1,7 @@
 # functions involving BD interaction
 import psycopg2, json, math
 from conf import conf
+from shapely.wkb import loads as loadWKB
 
 # connect and establish a cursor, based on parameters in conf.py
 conn_string = (
@@ -21,6 +22,46 @@ def reconnect():
 def cursor():
 	"""provide a cursor"""
 	return connection.cursor()
+
+def get_trip_attributes(trip_id):
+	"""Return the attributes of a stored trip necessary 
+		for the construction of a new trip object.
+		This now includes the vehicle report times and positions."""
+	c = cursor()
+	c.execute(
+		"""
+			SELECT
+				block_id,
+				direction_id,
+				route_id,
+				vehicle_id,
+				(ST_DumpPoints(orig_geom)).geom,
+				(ST_DumpPoints(ST_Transform(orig_geom,4326))).geom,
+				unnest(times)
+			FROM {trips}
+			WHERE trip_id = %(trip_id)s
+		""".format(**conf['db']['tables']),
+		{ 'trip_id':trip_id }
+	)
+	points = []
+	for (bid, did, rid, vid, geom, wgs84geom, time ) in c:
+		# only consider the last three variables, as the rest are 
+		# the same for every record
+		wgs84geom = loadWKB(wgs84geom,hex=True)
+		points.append({
+			'geom':loadWKB(geom,hex=True),
+			'time':time,
+			'lat': wgs84geom.y,
+			'lon': wgs84geom.x
+		})
+	result = {
+		'block_id':bid,
+		'direction_id':did,
+		'route_id':rid,
+		'vehicle_id':vid,
+		'points':points
+	}
+	return result
 
 def new_trip_id():
 	"""get a next trip_id to start from, defaulting to 1"""
@@ -116,23 +157,42 @@ def add_trip_match(trip_id,confidence,geometry_match):
 	)
 
 
-def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id):
+def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id,times,orig_geom):
 	"""Store the basics of the trip in the database."""
 	c = cursor()
 	# store the given values
 	c.execute(
 		"""
 			INSERT INTO {trips} 
-				( trip_id, block_id, route_id, direction_id, vehicle_id ) 
+				( 
+					trip_id, 
+					block_id, 
+					route_id, 
+					direction_id, 
+					vehicle_id, 
+					times,
+					orig_geom
+			) 
 			VALUES 
-				( %(trip_id)s,%(block_id)s,%(route_id)s,%(direction_id)s,%(vehicle_id)s );
+				( 
+					%(trip_id)s,
+					%(block_id)s,
+					%(route_id)s,
+					%(direction_id)s,
+					%(vehicle_id)s, 
+					%(times)s,
+					ST_SetSRID( %(orig_geom)s::geometry, %(localEPSG)s )
+				);
 		""".format(**conf['db']['tables']),
 		{
 			'trip_id':trip_id, 
 			'block_id':block_id, 
 			'route_id':route_id, 
 			'direction_id':direction_id, 
-			'vehicle_id':vehicle_id
+			'vehicle_id':vehicle_id,
+			'times':times,
+			'orig_geom':orig_geom,
+			'localEPSG':conf['localEPSG'],
 		}
 	)
 
@@ -176,24 +236,24 @@ def get_stops(direction_id):
 	return stops
 
 
-def store_points(trip_id,localWKBgeom,etimes_list):
-	"""this should be run on the inital, live collected trip instance.
-		It stores the time and location of every given report for this trip."""
-	c = cursor()
-	c.execute(
-		"""
-			UPDATE {trips} SET 
-				orig_geom = ST_SetSRID( %(geom)s::geometry, %(localEPSG)s ),
-				times = %(times)s
-			WHERE trip_id = %(trip_id)s;
-		""".format(**conf['db']['tables']),
-		{
-			'trip_id':trip_id,
-			'geom':localWKBgeom,
-			'localEPSG':conf['localEPSG'],
-			'times':etimes_list
-		}
-	)
+#def store_points(trip_id,localWKBgeom,etimes_list):
+#	"""this should be run on the inital, live collected trip instance.
+#		It stores the time and location of every given report for this trip."""
+#	c = cursor()
+#	c.execute(
+#		"""
+#			UPDATE {trips} SET 
+#				orig_geom = ST_SetSRID( %(geom)s::geometry, %(localEPSG)s ),
+#				times = %(times)s
+#			WHERE trip_id = %(trip_id)s;
+#		""".format(**conf['db']['tables']),
+#		{
+#			'trip_id':trip_id,
+#			'geom':localWKBgeom,
+#			'localEPSG':conf['localEPSG'],
+#			'times':etimes_list
+#		}
+#	)
 
 
 def set_trip_clean_geom(trip_id,localWKBgeom):
@@ -357,45 +417,20 @@ def scrub_trip(trip_id):
 	c = cursor()
 	c.execute(
 		"""
-			-- Trips table
-			UPDATE nb_trips SET 
+			UPDATE {trips} SET 
 				match_confidence = NULL,
 				match_geom = NULL,
-				orig_geom = NULL,
 				clean_geom = NULL,
 				problem = '',
-				ignore = FALSE 
+				ignore = FALSE,
+				service_id = NULL
 			WHERE trip_id = %(trip_id)s;
-			-- Stop-Times table
-			DELETE FROM nb_stop_times 
+
+			DELETE FROM {stop_times} 
 			WHERE trip_id = %(trip_id)s;
 		""".format(**conf['db']['tables']),
-		{'trip_id':trip_id}
+		{ 'trip_id':trip_id }
 	)
-
-
-
-def get_trip(trip_id):
-	# TODO eliminate dependence on nb_vehicles
-	"""return the attributes of a stored trip necessary 
-		for the construction of a new trip object"""
-	c = cursor()
-	c.execute("""
-		SELECT 
-			block_id, direction_id, route_id, vehicle_id 
-		FROM nb_trips
-		WHERE trip_id = %s
-		""",(trip_id,)
-	)
-	(bid,did,rid,vid,) = c.fetchone()
-	c.execute("""
-		SELECT MAX(report_time) 
-		FROM nb_vehicles 
-		WHERE trip_id = %s AND NOT ignore
-		""",(trip_id,)
-	)
-	(last_seen,) = c.fetchone()
-	return (bid,did,rid,vid,last_seen)
 
 
 def get_trip_ids(min_id,max_id):
@@ -422,35 +457,12 @@ def trip_exists(trip_id):
 	c = cursor()
 	c.execute(
 		"""
-			SELECT EXISTS (SELECT * FROM {trips} WHERE trip_id = %s)
+			SELECT EXISTS (SELECT * FROM {trips} WHERE trip_id = %(trip_id)s)
 		""".format(**conf['db']['tables']),
-		{ 'trip_id':trip_id}
+		{ 'trip_id':trip_id }
 	)
 	(existence,) = c.fetchone()
 	return existence
 
-
-#def get_vehicles(trip_id):
-#	"""returns full projected vehicle linestring and times"""
-#	c = cursor()
-#	# get the trip geometry and timestamps
-#	c.execute("""
-#		SELECT
-#			uid, lat, lon, report_time,
-#			ST_Transform(ST_SetSRID(ST_MakePoint(lon,lat),4326),26917) AS geom
-#		FROM nb_vehicles 
-#		WHERE trip_id = %s
-#		ORDER BY report_time ASC;
-#	""",(trip_id,))
-#	vehicles = []
-#	for (uid,lat,lon,time,geom) in c.fetchall():
-#		vehicles.append({
-#			'uid':	uid,
-#			'geom':	geom,
-#			'time':	time,
-#			'lat':	lat,
-#			'lon':	lon
-#		})
-#	return vehicles
 
 
