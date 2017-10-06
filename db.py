@@ -192,7 +192,7 @@ def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id,times,orig_geo
 			'vehicle_id':vehicle_id,
 			'times':times,
 			'orig_geom':orig_geom,
-			'localEPSG':conf['localEPSG'],
+			'localEPSG':conf['localEPSG']
 		}
 	)
 

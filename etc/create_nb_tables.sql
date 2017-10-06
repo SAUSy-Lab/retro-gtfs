@@ -16,7 +16,7 @@ CREATE TABLE nb_stops (
 	stop_code integer, -- public_id
 	lon numeric,
 	lat numeric,
-	the_geom geometry(POINT,26917),
+	the_geom geometry(POINT,32610),
 	report_time timestamp with time zone
 );
 CREATE INDEX nbs_idx ON nb_stops (stop_id);
@@ -50,9 +50,9 @@ CLUSTER nb_directions USING nbd_idx;
 DROP TABLE IF EXISTS nb_trips;
 CREATE TABLE nb_trips (
 	trip_id integer PRIMARY KEY,
-	orig_geom geometry(LINESTRING,26917),	-- geometry of all points
+	orig_geom geometry(LINESTRING,32610),	-- geometry of all points
 	times double precision[], -- sequential report_times, corresponding to points on orig_geom
-	route_id integer,
+	route_id varchar,
 	direction_id varchar,
 	service_id smallint,
 	vehicle_id varchar,
@@ -60,8 +60,8 @@ CREATE TABLE nb_trips (
 	match_confidence real,
 	ignore boolean DEFAULT FALSE,	-- ignore this trip during processing?
 	-- debugging fields
-	match_geom geometry(LINESTRING,26917), -- map-matched route geometry
-	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching
+	match_geom geometry(LINESTRING,32610), -- map-matched route geometry
+	clean_geom geometry(LINESTRING,32610), -- geometry of points used in map matching
 	problem varchar DEFAULT ''	-- description of any problems that arise
 );
 CREATE INDEX nbt_idx ON nb_trips (trip_id);

@@ -20,7 +20,7 @@ class trip(object):
 		self.trip_id = -1				# int
 		self.block_id = -1			# int
 		self.direction_id = ''		# str
-		self.route_id = -1			# int
+		self.route_id = ''			# str
 		self.vehicle_id = -1			# int
 		self.last_seen = -1			# last vehicle report (epoch time)
 		# initialize sequence
