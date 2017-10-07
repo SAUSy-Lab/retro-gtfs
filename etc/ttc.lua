@@ -355,7 +355,7 @@ function process_way(profile, way, result)
   end
 
   -- railway check, Nate's
-  if data.railway == 'tram' then
+  if data.railway == 'tram' or data.railway == 'light_rail' then
     result.forward_speed = 20
     result.backward_speed = 20
     result.forward_mode = mode.driving
