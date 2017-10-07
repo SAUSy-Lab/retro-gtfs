@@ -17,7 +17,8 @@ CREATE TABLE nb_stops (
 	lon numeric,
 	lat numeric,
 	the_geom geometry(POINT,32610),
-	report_time timestamp with time zone
+	report_time timestamp with time zone,
+	active boolean DEFAULT TRUE -- debugging flag
 );
 CREATE INDEX nbs_idx ON nb_stops (stop_id);
 CLUSTER nb_stops USING nbs_idx;
@@ -62,7 +63,8 @@ CREATE TABLE nb_trips (
 	-- debugging fields
 	match_geom geometry(LINESTRING,32610), -- map-matched route geometry
 	clean_geom geometry(LINESTRING,32610), -- geometry of points used in map matching
-	problem varchar DEFAULT ''	-- description of any problems that arise
+	problem varchar DEFAULT '', -- description of any problems that arise
+	active boolean DEFAULT TRUE -- debugging flag
 );
 CREATE INDEX nbt_idx ON nb_trips (trip_id);
 CLUSTER nb_trips USING nbt_idx;
