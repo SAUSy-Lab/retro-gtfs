@@ -21,10 +21,6 @@ def time_loop():
 	threading.Timer( 10, time_loop ).start() # int is delay in seconds
 	# request new vehicles and store them
 	get_new_vehicles()
-	if getRoutes:
-		# request a route update at random, with p = 0.1
-		if random.random() <= 0.1:
-			fetch_route( random.choice(routes) )
 
 if truncateData:
 	db.empty_tables()

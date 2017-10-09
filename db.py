@@ -96,7 +96,7 @@ def empty_tables():
 	c = cursor()
 	c.execute(
 		"""
-			TRUNCATE {trips}, {stop_times}, {directions}, {stops};
+			TRUNCATE {trips}, {stop_times};
 		""".format(**conf['db']['tables'])
 	)
 

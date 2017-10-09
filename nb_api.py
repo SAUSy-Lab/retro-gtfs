@@ -1,15 +1,17 @@
 # functions involving requests to the nextbus APIs
 
-import requests, time, db
+import requests, time, db, random
 import xml.etree.ElementTree as ET
 from trip import trip
 import threading
+import multiprocessing
 from os import remove, path
 from conf import conf # configuration
 import sys
 
 # should we process trips (or simply store the vehicles)? default False
 doMatching = True if 'doMatching' in sys.argv else False
+getRoutes = True if 'getRoutes' in sys.argv else False
 
 # GLOBALS
 fleet = {} 			# operating vehicles in the ( fleet vid -> trip_obj )
@@ -111,12 +113,14 @@ def get_new_vehicles():
 	for some_trip in ending_trips:
 		if len(some_trip.vehicles) > 1:
 			some_trip.save()
+			# look for new route information with 10% probability
+			if getRoutes and random.random() < 0.1: 
+				fetch_route(some_trip.route_id)
 	# process the trips that are ending?
 	if doMatching:
 		for some_trip in ending_trips:
-			# start each in it's own thread
+			# start each in it's own process
 			thread = threading.Thread(target=some_trip.process)
-			thread.setDaemon(True)
 			thread.start()
 
 def fetch_route(route_id):

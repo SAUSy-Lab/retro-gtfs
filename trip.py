@@ -1,13 +1,13 @@
 # documentation on the nextbus feed:
 # http://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf
 
-import re, db, json, map_api, random, math
+import re, db, json, math, random 
+import map_api
 from numpy import mean
 from conf import conf
 from shapely.wkb import loads as loadWKB, dumps as dumpWKB
 from shapely.ops import transform as reproject
 from shapely.geometry import Point, asShape, LineString
-from geom import cut, cut2
 
 class trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -122,8 +122,9 @@ class trip(object):
 			self.fix_error()
 			# update the segment speeds for the next iteration
 			self.segment_speeds = self.get_segment_speeds()
-		# trip is clean, so store the cleaned line and begin matching
+		# trip is clean, so store the cleaned line 
 		db.set_trip_clean_geom(self.trip_id,self.get_geom())
+		# and begin matching
 		self.match()
 
 	def get_geom(self):
