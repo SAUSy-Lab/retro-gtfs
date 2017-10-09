@@ -17,11 +17,10 @@ CREATE TABLE nb_stops (
 	lon numeric,
 	lat numeric,
 	the_geom geometry(POINT,32610),
-	report_time timestamp with time zone,
+	report_time double precision, -- epoch time
 	active boolean DEFAULT TRUE -- debugging flag
 );
-CREATE INDEX nbs_idx ON nb_stops (stop_id);
-CLUSTER nb_stops USING nbs_idx;
+CREATE INDEX ON nb_stops (stop_id);
 
 /*
 	Similar to GTFS trips table, in that it stores sequences of 
@@ -38,10 +37,9 @@ CREATE TABLE nb_directions (
 	branch varchar,
 	useforui boolean,
 	stops text[],
-	report_time timestamp with time zone
+	report_time double precision -- epoch time
 );
-CREATE INDEX nbd_idx ON nb_directions (direction_id);
-CLUSTER nb_directions USING nbd_idx;
+CREATE INDEX ON nb_directions (direction_id);
 
 /*
 	Data on vehilce locations fetched from the API gets stored here along 
@@ -66,8 +64,7 @@ CREATE TABLE nb_trips (
 	problem varchar DEFAULT '', -- description of any problems that arise
 	active boolean DEFAULT TRUE -- debugging flag
 );
-CREATE INDEX nbt_idx ON nb_trips (trip_id);
-CLUSTER nb_trips USING nbt_idx;
+CREATE INDEX ON nb_trips (trip_id);
 
 /*
 	Where interpolated stop times are stored for each trip. 
@@ -80,6 +77,4 @@ CREATE TABLE nb_stop_times(
 	etime double precision, -- epoch time at greenwich
 	arrival_time interval HOUR TO SECOND
 );
-CREATE INDEX nbst_idx ON nb_stop_times (trip_id);
-CLUSTER nb_stop_times USING nbst_idx;
-
+CREATE INDEX ON nb_stop_times (trip_id);

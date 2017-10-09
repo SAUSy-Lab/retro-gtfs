@@ -198,33 +198,39 @@ def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id,times,orig_geo
 
 
 
-def get_stops(direction_id):
-	"""given the direction id, get the ordered list of stops
-		and their attributes for the direction, returning 
-		as a dictionary"""
+def get_stops(direction_id,trip_time):
+	"""given the direction id, and the time of the trip,  
+		get a list of stops and their attributes from 
+		the schedule data, returning as a dictionary"""
+	# TODO this does not account for new stop positions 
+	# TODO for the same ID which could potentially be reported 
+	# TODO by the API
 	c = cursor()
 	c.execute(
 		"""
-			WITH sub AS (
-				SELECT
+			WITH stops AS (
+				SELECT 
 					unnest(stops) AS stop_id
 				FROM {directions} 
-				WHERE
-					direction_id = %(direction_id)s AND
-					report_time = (
-						SELECT MAX(report_time) -- most recent 
-						FROM {directions} 
-						WHERE direction_id = %(direction_id)s
-					)
+				WHERE uid = (
+					SELECT uid 
+					FROM {directions}
+					WHERE 
+						direction_id = %(direction_id)s AND 
+						report_time <= %(trip_time)s
+					ORDER BY report_time DESC
+					LIMIT 1
+				)
 			)
 			SELECT 
 				stop_id,
 				the_geom
 			FROM {stops}
-			WHERE stop_id IN (SELECT stop_id FROM sub);
+			WHERE stop_id IN (SELECT stop_id FROM stops);
 		""".format(**conf['db']['tables']),
 		{
-			'direction_id':direction_id
+			'direction_id':direction_id,
+			'trip_time':trip_time # epoch time
 		}
 	)
 	stops = []
@@ -234,26 +240,6 @@ def get_stops(direction_id):
 			'geom':geom
 		})
 	return stops
-
-
-#def store_points(trip_id,localWKBgeom,etimes_list):
-#	"""this should be run on the inital, live collected trip instance.
-#		It stores the time and location of every given report for this trip."""
-#	c = cursor()
-#	c.execute(
-#		"""
-#			UPDATE {trips} SET 
-#				orig_geom = ST_SetSRID( %(geom)s::geometry, %(localEPSG)s ),
-#				times = %(times)s
-#			WHERE trip_id = %(trip_id)s;
-#		""".format(**conf['db']['tables']),
-#		{
-#			'trip_id':trip_id,
-#			'geom':localWKBgeom,
-#			'localEPSG':conf['localEPSG'],
-#			'times':etimes_list
-#		}
-#	)
 
 
 def set_trip_clean_geom(trip_id,localWKBgeom):
@@ -339,12 +325,14 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 			INSERT INTO nb_stops ( 
 				stop_id, stop_name, stop_code, 
 				the_geom, 
-				lon, lat, report_time 
+				lon, lat, 
+				report_time 
 			) 
 			VALUES ( 
 				%(stop_id)s, %(stop_name)s, %(stop_code)s, 
 				ST_Transform( ST_SetSRID( ST_MakePoint(%(lon)s, %(lat)s),4326),%(localEPSG)s ),
-				%(lon)s, %(lat)s, NOW()
+				%(lon)s, %(lat)s, 
+				EXTRACT(EPOCH FROM NOW())
 			)""".format(**conf['db']['tables']),
 			{ 
 				'stop_id':stop_id,
@@ -401,7 +389,7 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 				( 
 					%s, %s, %s,
 					%s, %s, %s, 
-					%s, NOW()
+					%s, EXTRACT(EPOCH FROM NOW())
 				)""".format(**conf['db']['tables']),
 			(
 				route_id,did,title,

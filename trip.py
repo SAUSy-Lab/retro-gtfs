@@ -66,6 +66,7 @@ class trip(object):
 		Trip.route_id = dbta['route_id']
 		Trip.vehicle_id = dbta['vehicle_id']
 		Trip.vehicles = dbta['points']
+		Trip.last_seen = Trip.vehicles[-1]
 		# this is being REprocessed so clean up any traces of the 
 		# result of earlier processing so that we have a fresh start
 		db.scrub_trip(trip_id)
@@ -195,7 +196,7 @@ class trip(object):
 				pass
 		# get the stops as a list of objects
 		# with keys {'id':stop_id,'g':geom}
-		self.stops = db.get_stops(self.direction_id)
+		self.stops = db.get_stops(self.direction_id,self.last_seen)
 		# we now have all the waypoints and all the stops and
 		# can begin interpolating times, to be stored alongside the stops.
 		# process the geoms
