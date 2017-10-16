@@ -270,7 +270,7 @@ def store_stop_times(trip_id,stops):
 		records.append( (trip_id,stop['id'],stop['arrival'],seq) )
 		seq += 1
 	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
-	c.execute("INSERT INTO nb_stop_times (trip_id, stop_id, etime, stop_sequence) VALUES " + args_str)
+	c.execute("INSERT INTO {stop_times} (trip_id, stop_id, etime, stop_sequence) VALUES " + args_str)
 
 
 def set_service_id(trip_id,service_id):
@@ -322,7 +322,7 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 	# store the stop
 	c.execute(
 		"""
-			INSERT INTO nb_stops ( 
+			INSERT INTO {stops} ( 
 				stop_id, stop_name, stop_code, 
 				the_geom, 
 				lon, lat, 
