@@ -48,7 +48,6 @@ COPY (
 COPY (
 	SELECT 
 		t.trip_id,
-		arrival_time,
 		-- time formatting nightmare
 		-- TODO note the timezones in the time calculations
 		(
@@ -64,7 +63,6 @@ COPY (
 		stop_id,
 		stop_sequence
 	FROM muni_stop_times AS st JOIN muni_trips AS t ON st.trip_id = t.trip_id
-	WHERE arrival_time IS NOT NULL AND t.trip_id = 130769
 	ORDER BY trip_id, stop_sequence ASC
 	
 ) TO '/home/nate/retro-gtfs/output/muni/stop_times.txt' CSV HEADER;
