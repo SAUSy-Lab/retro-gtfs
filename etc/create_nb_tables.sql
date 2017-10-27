@@ -74,7 +74,6 @@ CREATE TABLE ttc_stop_times(
 	trip_id integer,
 	stop_id varchar,
 	stop_sequence integer,
-	etime double precision, -- epoch time at greenwich
-	arrival_time interval HOUR TO SECOND
+	etime double precision -- non-localized epoch time in seconds
 );
 CREATE INDEX ON ttc_stop_times (trip_id);
