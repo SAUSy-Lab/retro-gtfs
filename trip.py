@@ -66,7 +66,7 @@ class trip(object):
 		Trip.route_id = dbta['route_id']
 		Trip.vehicle_id = dbta['vehicle_id']
 		Trip.vehicles = dbta['points']
-		Trip.last_seen = Trip.vehicles[-1]
+		Trip.last_seen = Trip.vehicles[-1]['time']
 		# this is being REprocessed so clean up any traces of the 
 		# result of earlier processing so that we have a fresh start
 		db.scrub_trip(trip_id)
