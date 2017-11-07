@@ -4,7 +4,7 @@ COPY(
 		service_id,
 		to_char(TIMESTAMP 'EPOCH' + (service_id * INTERVAL '1 day'),'YYYYMMDD') AS date,
 		1 AS exception_type
-	FROM (SELECT DISTINCT service_id FROM muni_trips WHERE service_id IS NOT NULL AND NOT ignore) AS s
+	FROM (SELECT DISTINCT service_id FROM muni_trips WHERE service_id IS NOT NULL AND NOT ignore AND trip_id < 10000) AS s
 	ORDER BY service_id ASC
 ) TO '/home/nate/retro-gtfs/output/muni/calendar_dates.txt' CSV HEADER;
 
@@ -17,7 +17,7 @@ COPY (
 		lat AS stop_lat,
 		lon AS stop_lon
 	FROM muni_stops 
-	WHERE stop_id IN (SELECT DISTINCT stop_id FROM muni_stop_times)
+	WHERE stop_id IN (SELECT DISTINCT stop_id FROM muni_stop_times WHERE trip_id < 10000)
 ) TO '/home/nate/retro-gtfs/output/muni/stops.txt' CSV HEADER;
 
 -- routes
@@ -30,6 +30,7 @@ COPY (
 			'' AS route_long_name,
 			3 AS route_type -- they are all bus for now
 	FROM muni_trips
+	WHERE trip_id < 10000
 ) TO '/home/nate/retro-gtfs/output/muni/routes.txt' CSV HEADER;
 
 -- trips
@@ -41,7 +42,7 @@ COPY (
 		t.block_id,
 		'shp_'||trip_id AS shape_id
 	FROM muni_trips AS t
-	WHERE NOT ignore AND service_id IS NOT NULL
+	WHERE NOT ignore AND service_id IS NOT NULL AND trip_id < 10000
 ) TO '/home/nate/retro-gtfs/output/muni/trips.txt' CSV HEADER;
 
 -- stop_times
@@ -63,6 +64,7 @@ COPY (
 		stop_id,
 		stop_sequence
 	FROM muni_stop_times AS st JOIN muni_trips AS t ON st.trip_id = t.trip_id
+	WHERE t.trip_id < 10000
 	ORDER BY trip_id, stop_sequence ASC
 	
 ) TO '/home/nate/retro-gtfs/output/muni/stop_times.txt' CSV HEADER;
@@ -78,5 +80,5 @@ COPY (
 		'shp_'||trip_id AS shape_id,
 		(ST_DumpPoints(ST_Simplify(match_geom,10))).*
 	FROM muni_trips
-	WHERE NOT ignore AND service_id IS NOT NULL) AS sub
+	WHERE NOT ignore AND service_id IS NOT NULL AND trip_id < 10000) AS sub
 ) TO '/home/nate/retro-gtfs/output/muni/shapes.txt' CSV HEADER;

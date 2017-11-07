@@ -218,9 +218,6 @@ class trip(object):
 		# while there is more than 750m of path remaining
 		while path.length > 750:
 			subpath, path = cut(path,750)
-			if subpath.length == 0: 
-				# TODO why is this here? I forget.
-				return db.ignore_block(self.block_id,'problem cutting trip')
 			# check for nearby stops
 			for stop in self.stops:
 				# if the stop is close enough
