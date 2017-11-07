@@ -1,8 +1,9 @@
 # documentation on the nextbus feed:
 # http://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf
 
-import re, db, json, math, random 
+import re, db, math, random 
 import map_api
+from geom import cut
 from numpy import mean
 from conf import conf
 from shapely.wkb import loads as loadWKB, dumps as dumpWKB
@@ -28,7 +29,8 @@ class trip(object):
 		# declare several vars for later in the matching process
 		self.speed_string = ""		# str
 		self.match_confidence = -1	# 0 - 1 real
-		self.stops = []				# not set until process()
+		self.stops = []				# stop objects for this route
+		self.timepoints = []			# copies of stops with arrival times added
 		self.segment_speeds = []	# reported speeds of all segments
 		self.waypoints = []			# points on the finallized trip only
 		self.length = 0				# length in meters of current string
@@ -165,8 +167,6 @@ class trip(object):
 			return self.flag('match problem, code not "Ok"')
 		if len(result['matchings']) > 1:
 			return self.flag('more than one match segment')
-		# get the matched points
-		tracepoints = result['tracepoints']
 		# only handling the first result for now TODO fix that
 		match = result['matchings'][0]
 		self.match_confidence = match['confidence']
@@ -174,70 +174,112 @@ class trip(object):
 		self.match_geom = asShape(match['geometry'])
 		# and be sure to projejct it correctly...
 		self.match_geom = reproject( conf['projection'], self.match_geom )
-
+		# simplify slightly for speed (2 meter simplification)
+		self.match_geom = self.match_geom.simplify(2)
+		# store the match info in the DB
 		db.add_trip_match(
 			self.trip_id,
 			self.match_confidence,
-			json.dumps(match['geometry'])
+			dumpWKB(self.match_geom,hex=True)
 		)
-
-		# get the times for the waypoints from the vehicle locations
-		# compare to the corresponding points on the matched line 
-		for point,vehicle in zip(tracepoints,self.vehicles):
+		# use the OSRM tracepoints to drop vehicles that did 
+		# not contribute to the match 
+		tracepoints = result['tracepoints']
+		for i in reversed( range( 0, len(self.vehicles) ) ):
 			# these are the matched points of the input cordinates
 			# null entries indicate an omitted outlier
-			# that is why there is a 'try' here. 
-			try:
-				self.waypoints.append({
-					'time':vehicle['time'],
-					'cum_dist':self.match_geom.project( vehicle['geom'], normalized=True )
-				})
-			except:
-				pass
+			if tracepoints[i] is None:
+				del self.vehicles[i]
+		# we should now have one more vehicle record than we have 
+		# legs to the match result. Use these to assign intervehicle 
+		# distances to the vehicle records (in meters)
+		for i in range(0,len(self.vehicles)):
+			if i == 0:
+				self.vehicles[i]['cum_dist'] = 0
+			else:
+				dist_from_last_vehicle = match['legs'][i-1]['distance']
+				self.vehicles[i]['cum_dist'] = self.vehicles[i-1]['cum_dist'] + dist_from_last_vehicle		
+		# However, because we've simplified the line, the distances will be slightly off
+		# and need correcting 
+		adjust_factor = self.match_geom.length / self.vehicles[-1]['cum_dist']
+		for v in self.vehicles:
+			v['cum_dist'] = v['cum_dist'] * adjust_factor
 		# get the stops as a list of objects
 		# with keys {'id':stop_id,'g':geom}
 		self.stops = db.get_stops(self.direction_id,self.last_seen)
 		# we now have all the waypoints and all the stops and
-		# can begin interpolating times, to be stored alongside the stops.
+		# can begin interpolating stop times.
 		# process the geoms
 		for stop in self.stops:
 			stop['geom'] = loadWKB(stop['geom'],hex=True)
-		# discard stops that are too far away
-		self.stops = [
-			s for s in self.stops 
-			if self.match_geom.distance(s['geom']) < conf['stop_dist']
-		]
-		for stop in self.stops:
-			# find position on line
-			stop['measure'] = self.match_geom.project( 
-				stop['geom'], 
-				normalized=True 
-			)
-			# interpolate a time
-			stop['arrival'] = self.interpolate_time(stop)
-			if not stop['arrival']:
-				print '\t\tproblem with time??' 
-				continue
+		# now match stops to the trip geometry by iterating over 750m subsets
+		path = self.match_geom
+		traversed = 0
+		# while there is more than 750m of path remaining
+		while path.length > 750:
+			subpath, path = cut(path,750)
+			if subpath.length == 0: 
+				# TODO why is this here? I forget.
+				return db.ignore_block(self.block_id,'problem cutting trip')
+			# check for nearby stops
+			for stop in self.stops:
+				# if the stop is close enough
+				stop_dist = subpath.distance(stop['geom'])
+				if stop_dist <= conf['stop_dist']:
+					# measure how far it is along the trip
+					measure = traversed + subpath.project(stop['geom'])
+					# add it to a list of possible stop times
+					self.add_arrival(stop['id'],measure,stop_dist)
+			# note what we have already traversed
+			traversed += 750
 		# sort stops by arrival time
-		self.stops = sorted(self.stops,key=lambda k: k['arrival'])
+		self.timepoints = sorted(self.timepoints,key=lambda k: k['time'])
 		# report on match quality
 		print '\t',self.match_confidence
 		# there is more than one stop, right?
-		if len(self.stops) > 1:
+		if len(self.timepoints) > 1:
 			# store the stop times
-			db.store_stop_times(self.trip_id,self.stops)
+			db.store_timepoints(self.trip_id,self.timepoints)
 			# Now set the service_id, which is the (local) DAY equivalent of 
 			# the unix epoch, which is centered on Greenwich.
 			# (The service_id is distinct to a day in the local timezone)
 			# First, shift the second_based epoch to local time
-			tlocal = self.stops[0]['arrival'] + conf['timezone'] * 3600
+			tlocal = self.timepoints[0]['time'] + conf['timezone']*3600
 			# then find the "epoch day"
 			service_id = math.floor( tlocal / (24*3600) )
 			# and store it in the DB
 			db.set_service_id(self.trip_id,service_id)
 		else:
-			db.ignore_trip(self.trip_id,'only one stop time estimated')
+			db.ignore_trip(self.trip_id,'only one timepoint estimated')
 		return
+
+	def add_arrival(self,stop_id,measure,distance):
+		"""take an observed stop on a trip and decide if 
+			A) this is a legit stop
+			B) this is an artifact of the trip splitting procedure
+			store the information necessary for the stop_times table"""
+		# check for B
+		for timepoint in self.timepoints:
+			# same stop id and close to the same position?
+			if timepoint['stop_id']==stop_id and abs(timepoint['measure']-measure) < 2*conf['stop_dist']:
+				# keep the one that is closer
+				if timepoint['distance'] <= distance:
+					# the stop we already have is closer
+					return
+				else:	
+					# the new stop is closer					
+					timepoint['measure'] = measure
+					timepoint['dist'] = distance
+					timepoint['time'] = self.interpolate_time(measure)
+					return
+		# we don't have anything like this stop yet, so add it
+		# though we may actually have seen this stop already
+		self.timepoints.append({
+			'stop_id':stop_id,
+			'measure':measure,
+			'distance':distance,
+			'time':self.interpolate_time(measure)
+		})
 
 
 	def ignore_vehicle(self,index):
@@ -313,40 +355,38 @@ class trip(object):
 			return
 
 
-	def interpolate_time(self,stop):
-		"""get the time for a stop which is ordered by doing an interpolation
-			on the trip times and locations. We already know the m of the stop
-			and of the points on the trip/track"""
+	def interpolate_time(self,distance_along_trip):
+		"""get the time for a stop by doing an interpolation on the trip times
+			and locations. We already know the m of the stop and of the points on 
+			the trip/track"""
 		# iterate over the segments of the trip, looking for the segment
 		# which holds the stop of interest
 		first = True
-		for point in self.waypoints:
+		for point in self.vehicles:
 			if first:
 				first = False
-				m1 = point['cum_dist'] # zero
+				m1 = point['cum_dist']
 				t1 = point['time'] # time
 				continue
 			m2 = point['cum_dist']
 			t2 = point['time']
-			if m1 <= stop['measure'] <= m2:	# intersection is at or between these points
+			if m1 <= distance_along_trip <= m2:	# intersection is at or between these points
 				# interpolate the time
-				if stop['measure'] == m1:
+				if distance_along_trip == m1:
 					return t1
-				percent_of_segment = (stop['measure'] - m1) / (m2 - m1)
+				percent_of_segment = (distance_along_trip - m1) / (m2 - m1)
 				additional_time = percent_of_segment * (t2 - t1) 
 				return t1 + additional_time
 			# create the segment for the next iteration
 			m1,t1 = m2,t2
-
 		# if we've made it this far, the stop was not technically on or 
 		# between any waypoints. This is probably a precision issue and the 
-		# stop should be right off one of the ends. Add 20 seconds as a 
-		# guestimate for extra time
-		if stop['measure'] == 0:
-			return self.waypoints[0]['time'] - 20
+		# stop should be right off one of the ends.
+		if distance_along_trip == 0:
+			return self.vehicles[0]['time'] - 20
 		# vv stop is off the end
 		else:
-			print '\t\tstop off by',round(stop['measure'] - self.waypoints[-1]['cum_dist'],5),'meters for block',self.trip_id
-			return self.waypoints[-1]['time'] + 20
+			print '\t\tstop off by',round(distance_along_trip - self.vehicles[-1]['cum_dist'],5),'meters for trip',self.trip_id
+			return self.vehicles[-1]['time'] + 20
 
 

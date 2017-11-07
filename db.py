@@ -133,7 +133,7 @@ def flag_trip(trip_id,problem_description_string):
 
 
 
-def add_trip_match(trip_id,confidence,geometry_match):
+def add_trip_match(trip_id,confidence,wkb_geometry_match):
 	"""update the trip record with it's matched geometry"""
 	c = cursor()
 	# store the given values
@@ -142,16 +142,13 @@ def add_trip_match(trip_id,confidence,geometry_match):
 			UPDATE {trips}
 			SET  
 				match_confidence = %(confidence)s,
-				match_geom = ST_Transform(
-					ST_SetSRID(ST_GeomFromGeoJSON( %(match)s ),4326),
-					%(localEPSG)s
-				)
+				match_geom = ST_SetSRID(%(match)s::geometry,%(localEPSG)s)
 			WHERE trip_id  = %(trip_id)s;
 		""".format(**conf['db']['tables']),
 		{
 			'localEPSG':conf['localEPSG'],
 			'confidence':confidence, 
-			'match':geometry_match, 
+			'match':wkb_geometry_match, 
 			'trip_id':trip_id
 		}
 	)
@@ -259,15 +256,15 @@ def set_trip_clean_geom(trip_id,localWKBgeom):
 	)
 
 
-def store_stop_times(trip_id,stops):
-	"""store the stop times for a trip"""
+def store_timepoints(trip_id,timepoints):
+	"""store the estimated stop times for a trip"""
 	c = cursor()
 	# insert the stops
 	records = []
 	seq = 1
-	for stop in stops:
+	for timepoint in timepoints:
 		# list of tuples
-		records.append( (trip_id,stop['id'],stop['arrival'],seq) )
+		records.append( (trip_id,timepoint['stop_id'],timepoint['time'],seq) )
 		seq += 1
 	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
 	c.execute("INSERT INTO {stop_times} (trip_id, stop_id, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
