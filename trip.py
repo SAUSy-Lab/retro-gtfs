@@ -237,7 +237,7 @@ class trip(object):
 			# and store it in the DB
 			db.set_service_id(self.trip_id,service_id)
 		else:
-			db.ignore_trip(self.trip_id,'only one timepoint estimated')
+			db.ignore_trip(self.trip_id,'one or fewer timepoints')
 		return
 
 
@@ -371,7 +371,7 @@ class trip(object):
 			return self.vehicles[0]['time'] - 20
 		# vv stop is off the end
 		else:
-			print '\t\tstop off by',round(distance_along_trip - self.vehicles[-1]['cum_dist'],5),'meters for trip',self.trip_id
+			print '\t\tstop off by',distance_along_trip - self.vehicles[-1]['cum_dist'],'meters for trip',self.trip_id
 			return self.vehicles[-1]['time'] + 20
 
 

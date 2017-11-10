@@ -24,9 +24,11 @@ class match(object):
 		self.send()
 		# validate the results - can we likely improve on them?
 		self.validate()
-		# print 
-		print '\tconf. is',self.confidence,'on',len(self.response['matchings']),'match(es) after',self.num_attempts,'tries' 
-
+		# output
+		if self.is_useable:
+			print '\tconf. is',self.confidence,'on',len(self.response['matchings']),'match(es) after',self.num_attempts,'tries' 
+		else:
+			print '\tmatching failed'
 
 	def send(self):
 		"""construct the query and send it to OSRM"""
@@ -38,7 +40,7 @@ class match(object):
 			times.append( int( round( v['time'] ) ) )
 		coords = ';'.join( [str(lon)+','+str(lat) for (lon,lat) in zip(lons,lats)] )
 		times = ';'.join( [str(time) for time in times] )
-		radii = ';'.join( [str(round(self.error_radius))]*len(lons) )
+		radii = ';'.join( [str(int(round(self.error_radius)))]*len(lons) )
 		# construct and send the request
 		options = {
 			'radiuses':radii,
@@ -75,7 +77,6 @@ class match(object):
 	def may_be_improved(self):
 		"""can this match likely be improved by anything we can control here?"""
 		if self.response['code'] != 'Ok':
-			print '\tcode not Ok'
 			self.is_useable = False
 			return False
 		# estimate the match confidence

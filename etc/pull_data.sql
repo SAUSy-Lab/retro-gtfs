@@ -70,10 +70,12 @@ COPY (
 ) TO '/home/nate/retro-gtfs/output/muni/stop_times.txt' CSV HEADER;
 
 -- shapes
+-- this simply fills in the gaps in 
 COPY (
 	SELECT 
 		shape_id,
-		path[1] AS shape_pt_sequence,
+		-- path is an array of [line number, point number]
+		row_number() OVER (PARTITION BY shape_id ORDER BY path ASC) AS shape_pt_sequence,
 		ST_X(ST_Transform(geom,4326))::double precision AS shape_pt_lon,
 		ST_Y(ST_Transform(geom,4326))::double precision AS shape_pt_lat
 	FROM ( SELECT
