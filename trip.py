@@ -8,7 +8,7 @@ from numpy import mean
 from conf import conf
 from shapely.wkb import loads as loadWKB, dumps as dumpWKB
 from shapely.ops import transform as reproject
-from shapely.geometry import Point, asShape, LineString
+from shapely.geometry import Point, asShape, LineString, MultiLineString
 
 class trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -176,6 +176,10 @@ class trip(object):
 		self.match_geom = reproject( conf['projection'], self.match_geom )
 		# simplify slightly for speed (2 meter simplification)
 		self.match_geom = self.match_geom.simplify(2)
+		# if the multi actually just had one line, this simplifies to a 
+		# linestring, which can cause problems down the road
+		if self.match_geom.geom_type == 'LineString':
+			self.match_geom = MultiLineString([self.match_geom])
 		# store the match info and geom in the DB
 		db.add_trip_match(
 			self.trip_id,
@@ -186,7 +190,6 @@ class trip(object):
 		vehicles_used = match.vehicles_used()
 		for i in reversed( range( 0, len(self.vehicles) ) ):
 			if not vehicles_used[i]: del self.vehicles[i]
-		print '\t',len(self.vehicles),'vehicles actually used for matching'
 		# get distances of each vehicle along the match geom
 		for vehicle,cum_dist in zip( self.vehicles, match.cum_distances() ):
 			vehicle['cum_dist'] = cum_dist
@@ -205,7 +208,7 @@ class trip(object):
 		path = self.match_geom
 		traversed = 0
 		# while there is more than 750m of path remaining
-		while path.length > 750:
+		while path.length > 0:
 			subpath, path = cut(path,750)
 			# check for nearby stops
 			for stop in self.stops:

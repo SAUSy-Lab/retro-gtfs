@@ -13,21 +13,19 @@ class match(object):
 	def __init__(self,vehicles):
 		# initialize some variables
 		self.vehicles = vehicles
-		print '\t',len(vehicles),'vehicles'
 		self.confidence = None					# average match confidence
 		self.geom = MultiLineString()			# multiline shapely geom
 		self.error_radius = conf['error_radius']
 		self.use_times = True					# whether times are sent to OSRM
 		self.response = {}						# python-parsed formerly-JSON object
 		self.is_useable = True					# good enough to be used elsewhere?
+		self.num_attempts = 0
 		# send the query right away
 		self.send()
 		# validate the results - can we likely improve on them?
-	#	self.validate()
-		# debugging
-		for m in self.response['matchings']:
-			print '\tnum legs',len(m['legs'])
-			#print '\t',m['legs']
+		self.validate()
+		# print 
+		print '\tconf. is',self.confidence,'on',len(self.response['matchings']),'match(es) after',self.num_attempts,'tries' 
 
 
 	def send(self):
@@ -63,6 +61,8 @@ class match(object):
 		)
 		# parse the result to a python object
 		self.response = json.loads(raw_response.text)
+		# note the attempt
+		self.num_attempts += 1
 
 
 	def validate(self):
@@ -70,7 +70,6 @@ class match(object):
 		while self.may_be_improved():
 			self.error_radius *= 1.5
 			self.send()
-		print '\tdone trying to improve the match'
 
 
 	def may_be_improved(self):
@@ -82,7 +81,6 @@ class match(object):
 		# estimate the match confidence
 		confidences = [ m['confidence'] for m in self.response['matchings'] ]
 		self.confidence = mean(confidences)
-		print '\tmean confidence is',self.confidence,'on',len(self.response['matchings']),'matches' 
 		if (
 			self.confidence / len(self.response['matchings']) < 0.2
 			and self.error_radius < 2*conf['error_radius']
@@ -96,7 +94,7 @@ class match(object):
 		"""return the multi-line geometry from one or more matches"""
 		# get a list of lists of coords
 		lines = [asShape(matching['geometry']) for matching in self.response['matchings']]
-		return MultiLineString(lines )
+		return MultiLineString(lines)
 
 
 	def vehicles_used(self):
@@ -122,7 +120,6 @@ class match(object):
 			for leg in matching['legs']:
 				cum_dist += leg['distance']
 				dist_list.append(cum_dist)
-		print len(dist_list)
 		return dist_list
 
 
