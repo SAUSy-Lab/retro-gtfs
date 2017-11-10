@@ -36,8 +36,8 @@ class trip(object):
 		self.length = 0				# length in meters of current string
 		self.vehicles = []			# ordered vehicle records
 		self.ignored_vehicles = []	# discarded records
-		self.problems = []			# running list of issues
 		self.match_geom = None		# map-matched linestring 
+
 
 	@classmethod
 	def new(clss,trip_id,block_id,direction_id,route_id,vehicle_id,last_seen):
@@ -53,6 +53,7 @@ class trip(object):
 		Trip.last_seen = last_seen
 		# return the new object
 		return Trip
+
 
 	@classmethod
 	def fromDB(clss,trip_id):
@@ -74,6 +75,7 @@ class trip(object):
 		db.scrub_trip(trip_id)
 		return Trip
 
+
 	def add_point(self,lon,lat,etime):
 		"""add a vehicle location (which has just been observed) to the end 
 			of this trip"""
@@ -87,6 +89,7 @@ class trip(object):
 			'lat':lat
 		}
 		self.vehicles.append(point)
+
 
 	def save(self):
 		"""Store a record of this trip in the DB. This allows us to 
@@ -106,7 +109,8 @@ class trip(object):
 			times,
 			self.get_geom()
 		)
-	
+
+
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
 		if len(self.vehicles) < 5: # km
@@ -130,6 +134,7 @@ class trip(object):
 		# and begin matching
 		self.match()
 
+
 	def get_geom(self):
 		"""return a clean WKB geometry string using all vehicles
 			in the local projection"""
@@ -137,6 +142,7 @@ class trip(object):
 		for v in self.vehicles:
 			line.append(v['geom'])
 		return dumpWKB(LineString(line),hex=True)
+
 
 	def get_segment_speeds(self):
 		"""return speeds (kmph) on the segments between vehicles
@@ -160,45 +166,30 @@ class trip(object):
 	def match(self):
 		"""Match the trip to the road network, and do all the
 			things that follow therefrom."""
-		result = map_api.map_match(self.vehicles)
-		# flag results with multiple matches for now until you can 
-		# figure out exactly what is going wrong
-		if result['code'] != 'Ok':
-			return self.flag('match problem, code not "Ok"')
-		if len(result['matchings']) > 1:
-			return self.flag('more than one match segment')
-		# only handling the first result for now TODO fix that
-		match = result['matchings'][0]
-		self.match_confidence = match['confidence']
+		match = map_api.match(self.vehicles)				
+		if not match.is_useable:
+			return db.ignore_trip(self.trip_id,'match problem')
+		self.match_confidence = match.confidence
 		# store the trip geometry
-		self.match_geom = asShape(match['geometry'])
-		# and be sure to projejct it correctly...
+		self.match_geom = match.geometry()
+		# and reproject it
 		self.match_geom = reproject( conf['projection'], self.match_geom )
 		# simplify slightly for speed (2 meter simplification)
 		self.match_geom = self.match_geom.simplify(2)
-		# store the match info in the DB
+		# store the match info and geom in the DB
 		db.add_trip_match(
 			self.trip_id,
 			self.match_confidence,
 			dumpWKB(self.match_geom,hex=True)
 		)
-		# use the OSRM tracepoints to drop vehicles that did 
-		# not contribute to the match 
-		tracepoints = result['tracepoints']
+		# drop vehicles that did not contribute to the match 
+		vehicles_used = match.vehicles_used()
 		for i in reversed( range( 0, len(self.vehicles) ) ):
-			# these are the matched points of the input cordinates
-			# null entries indicate an omitted outlier
-			if tracepoints[i] is None:
-				del self.vehicles[i]
-		# we should now have one more vehicle record than we have 
-		# legs to the match result. Use these to assign intervehicle 
-		# distances to the vehicle records (in meters)
-		for i in range(0,len(self.vehicles)):
-			if i == 0:
-				self.vehicles[i]['cum_dist'] = 0
-			else:
-				dist_from_last_vehicle = match['legs'][i-1]['distance']
-				self.vehicles[i]['cum_dist'] = self.vehicles[i-1]['cum_dist'] + dist_from_last_vehicle		
+			if not vehicles_used[i]: del self.vehicles[i]
+		print '\t',len(self.vehicles),'vehicles actually used for matching'
+		# get distances of each vehicle along the match geom
+		for vehicle,cum_dist in zip( self.vehicles, match.cum_distances() ):
+			vehicle['cum_dist'] = cum_dist
 		# However, because we've simplified the line, the distances will be slightly off
 		# and need correcting 
 		adjust_factor = self.match_geom.length / self.vehicles[-1]['cum_dist']
@@ -207,12 +198,10 @@ class trip(object):
 		# get the stops as a list of objects
 		# with keys {'id':stop_id,'g':geom}
 		self.stops = db.get_stops(self.direction_id,self.last_seen)
-		# we now have all the waypoints and all the stops and
-		# can begin interpolating stop times.
 		# process the geoms
 		for stop in self.stops:
 			stop['geom'] = loadWKB(stop['geom'],hex=True)
-		# now match stops to the trip geometry by iterating over 750m subsets
+		# now match stops to the trip geometry, 750m at a time
 		path = self.match_geom
 		traversed = 0
 		# while there is more than 750m of path remaining
@@ -231,8 +220,6 @@ class trip(object):
 			traversed += 750
 		# sort stops by arrival time
 		self.timepoints = sorted(self.timepoints,key=lambda k: k['time'])
-		# report on match quality
-		print '\t',self.match_confidence
 		# there is more than one stop, right?
 		if len(self.timepoints) > 1:
 			# store the stop times
@@ -249,6 +236,7 @@ class trip(object):
 		else:
 			db.ignore_trip(self.trip_id,'only one timepoint estimated')
 		return
+
 
 	def add_arrival(self,stop_id,measure,distance):
 		"""take an observed stop on a trip and decide if 
@@ -284,10 +272,6 @@ class trip(object):
 		v = self.vehicles.pop(index)
 		self.ignored_vehicles.append(v)
 
-	def flag(self,problem_description):
-		"""record that something undesireable has occured"""
-		self.problems.append(problem_description)
-
 
 	def has_errors(self):
 		"""see if the speed segments indicate that there are any 
@@ -304,6 +288,7 @@ class trip(object):
 			return True
 		else:
 			return False
+
 
 	def fix_error(self):
 		"""remove redundant points and fix obvious positional 

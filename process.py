@@ -20,7 +20,7 @@ def process_trip(valid_trip_id):
 
 # single mode enters one trip at a time and stops when 
 # a non-integer is entered
-if mode == 'single':
+if mode in ['single','s']:
 	trip_id = raw_input('trip_id to process--> ')
 	while trip_id.isdigit():
 		if db.trip_exists(trip_id):
@@ -34,7 +34,7 @@ if mode == 'single':
 		trip_id = raw_input('trip_id to process --> ')
 
 # 'range' mode does all valid ids in the given range
-elif mode == 'range':
+elif mode in ['range','r']:
 	id_range = raw_input('trip_id range as start:end --> ')
 	id_range = id_range.split(':')
 	# get a list of block id's in the range

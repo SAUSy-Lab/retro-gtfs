@@ -59,7 +59,7 @@ CREATE TABLE ttc_trips (
 	match_confidence real,
 	ignore boolean DEFAULT FALSE,	-- ignore this trip during processing?
 	-- debugging fields
-	match_geom geometry(LINESTRING,26917), -- map-matched route geometry
+	match_geom geometry(MULTILINESTRING,26917), -- map-matched route geometry
 	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching
 	problem varchar DEFAULT '', -- description of any problems that arise
 	active boolean DEFAULT TRUE -- debugging flag

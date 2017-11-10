@@ -63,6 +63,7 @@ def get_trip_attributes(trip_id):
 	}
 	return result
 
+
 def new_trip_id():
 	"""get a next trip_id to start from, defaulting to 1"""
 	c = cursor()
@@ -77,6 +78,7 @@ def new_trip_id():
 	except:
 		return 1
 
+
 def new_block_id():
 	"""get a next block_id to start from, defaulting to 1"""
 	c = cursor()
@@ -90,6 +92,7 @@ def new_block_id():
 		return block_id + 1
 	except:
 		return 1
+
 
 def empty_tables():
 	"""clear the tables"""
@@ -130,7 +133,6 @@ def flag_trip(trip_id,problem_description_string):
 			'trip_id':trip_id
 		}
 	)
-
 
 
 def add_trip_match(trip_id,confidence,wkb_geometry_match):
@@ -192,7 +194,6 @@ def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id,times,orig_geo
 			'localEPSG':conf['localEPSG']
 		}
 	)
-
 
 
 def get_stops(direction_id,trip_time):
@@ -448,6 +449,4 @@ def trip_exists(trip_id):
 	)
 	(existence,) = c.fetchone()
 	return existence
-
-
 
