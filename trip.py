@@ -368,10 +368,10 @@ class trip(object):
 		# between any waypoints. This is probably a precision issue and the 
 		# stop should be right off one of the ends.
 		if distance_along_trip == 0:
-			return self.vehicles[0]['time'] - 20
+			return self.vehicles[0]['time'] - 5
 		# vv stop is off the end
 		else:
 			print '\t\tstop off by',distance_along_trip - self.vehicles[-1]['cum_dist'],'meters for trip',self.trip_id
-			return self.vehicles[-1]['time'] + 20
+			return self.vehicles[-1]['time'] + 5
 
 
