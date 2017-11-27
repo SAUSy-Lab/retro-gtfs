@@ -419,7 +419,7 @@ def scrub_trip(trip_id):
 	)
 
 
-def get_trip_ids(min_id,max_id):
+def get_trip_ids_by_range(min_id,max_id):
 	"""return a list of all trip ids in the specified range"""
 	c = cursor()
 	c.execute(
@@ -432,6 +432,23 @@ def get_trip_ids(min_id,max_id):
 		{
 			'min':min_id,
 			'max':max_id
+		}
+	)
+	return [ result for (result,) in c.fetchall() ]
+
+
+def get_trip_ids_by_route(route_id):
+	"""return a list of all trip ids operating a given route"""
+	c = cursor()
+	c.execute(
+		"""
+			SELECT trip_id 
+			FROM {trips}
+			WHERE route_id = %(route_id)s 
+			ORDER BY trip_id ASC
+		""".format(**conf['db']['tables']),
+		{
+			'route_id':route_id
 		}
 	)
 	return [ result for (result,) in c.fetchall() ]
