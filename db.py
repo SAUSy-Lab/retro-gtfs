@@ -95,11 +95,20 @@ def new_block_id():
 
 
 def empty_tables():
-	"""clear the tables"""
+	"""clear the tables of any processing results
+		but NOT of original data from the API"""
 	c = cursor()
 	c.execute(
 		"""
-			TRUNCATE {trips}, {stop_times};
+			TRUNCATE {stop_times};
+			UPDATE {trips} SET 
+				service_id = NULL,
+				match_confidence = NULL,
+				ignore = TRUE,
+				clean_geom = NULL,
+				problem = NULL,
+				active = NULL,
+				match_geom = NULL;
 		""".format(**conf['db']['tables'])
 	)
 
@@ -197,39 +206,50 @@ def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id,times,orig_geo
 
 
 def get_stops(direction_id,trip_time):
-	"""given the direction id, and the time of the trip,  
-		get a list of stops and their attributes from 
-		the schedule data, returning as a dictionary"""
-	# TODO this does not account for new stop positions 
-	# TODO for the same ID which could potentially be reported 
-	# TODO by the API
+	"""given the direction id, and the time of the trip, get a list of stops and 
+		their attributes from the schedule data, returning as a dictionary. 
+		Need to make temporally relevant choices. trip_time is an epoch value"""
 	c = cursor()
+	# get stop_ids from the last reported direction 
+	# (from the perspective of this trip)
 	c.execute(
 		"""
-			WITH stops AS (
+			SELECT 
+				unnest(stops) AS stop_id
+			FROM {directions} 
+			WHERE uid = (
+				SELECT uid 
+				FROM {directions}
+				WHERE 
+					direction_id = %(direction_id)s AND 
+					report_time <= %(trip_time)s
+				ORDER BY report_time DESC
+				LIMIT 1
+			)
+		""".format(**conf['db']['tables']),
+		{ 'direction_id':direction_id, 'trip_time':trip_time }
+	)
+	# list of stop_ids
+	stop_ids = [ stop_id for (stop_id,) in c.fetchall() ]
+	# now we need to get the data for the last reported stops with these IDs
+	c.execute(
+		"""
+			WITH m AS (
 				SELECT 
-					unnest(stops) AS stop_id
-				FROM {directions} 
-				WHERE uid = (
-					SELECT uid 
-					FROM {directions}
-					WHERE 
-						direction_id = %(direction_id)s AND 
-						report_time <= %(trip_time)s
-					ORDER BY report_time DESC
-					LIMIT 1
-				)
+					stop_id, max(report_time) AS max_report_time
+				FROM {stops}
+				WHERE 
+					stop_id IN %(stop_ids)s AND 
+					report_time <= %(trip_time)s
+				GROUP BY stop_id
 			)
 			SELECT 
-				stop_id,
-				the_geom
-			FROM {stops}
-			WHERE stop_id IN (SELECT stop_id FROM stops);
+				s.stop_id, s.the_geom
+			FROM {stops} AS s JOIN m ON
+				s.stop_id = m.stop_id AND 
+				s.report_time = m.max_report_time
 		""".format(**conf['db']['tables']),
-		{
-			'direction_id':direction_id,
-			'trip_time':trip_time # epoch time
-		}
+		{ 'trip_time':trip_time, 'stop_ids':tuple(stop_ids) }
 	)
 	stops = []
 	for (stop_id,geom) in c.fetchall():

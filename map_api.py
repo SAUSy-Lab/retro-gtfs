@@ -82,6 +82,8 @@ class match(object):
 		# estimate the match confidence
 		confidences = [ m['confidence'] for m in self.response['matchings'] ]
 		self.confidence = mean(confidences)
+		# TODO testing
+		return False
 		if (
 			self.confidence / len(self.response['matchings']) < 0.2
 			and self.error_radius < 2*conf['error_radius']
