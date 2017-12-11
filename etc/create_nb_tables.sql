@@ -57,7 +57,7 @@ CREATE TABLE ttc_trips (
 	vehicle_id varchar,
 	block_id integer,
 	match_confidence real,
-	ignore boolean DEFAULT FALSE,	-- ignore this trip during processing?
+	ignore boolean DEFAULT TRUE,	-- this trip has not been processed or has been unsucessfully
 	-- debugging fields
 	match_geom geometry(MULTILINESTRING,26917), -- map-matched route geometry
 	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching
