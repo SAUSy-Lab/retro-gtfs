@@ -1,13 +1,11 @@
 # functions involving requests to the nextbus APIs
 
-import requests, time, db, random
+import requests, time, db, random, sys
+import threading, multiprocessing
 import xml.etree.ElementTree as ET
 from trip import trip
-import threading
-import multiprocessing
 from os import remove, path
 from conf import conf # configuration
-import sys
 
 # should we process trips (or simply store the vehicles)? default False
 doMatching = True if 'doMatching' in sys.argv else False
@@ -42,7 +40,7 @@ def get_new_vehicles():
 			timeout=3
 		)
 	except:
-		print 'connection problem'
+		print 'connection problem at',time.strftime("%b %d %Y %H:%M:%S")
 		return
 	# time the response was received
 	response_time = time.time()
@@ -108,7 +106,7 @@ def get_new_vehicles():
 				fleet[vid].last_seen = report_time
 				fleet[vid].seq += 1
 	# release the fleet lock
-	print len(fleet),'in fleet,',len(ending_trips),'ending trips'
+	print len(fleet),'in fleet,',len(ending_trips),'ending trips at',time.strftime("%b %d %Y %H:%M:%S")
 	# store the trips which are ending
 	for some_trip in ending_trips:
 		if len(some_trip.vehicles) > 1:
@@ -136,7 +134,7 @@ def fetch_route(route_id):
 			timeout=3
 		)
 	except:
-		print 'connection error'
+		print 'connection error fetching route at',time.strftime("%b %d %Y %H:%M:%S")
 		return
 	# this is the whole big ol' parsed XML document
 	XML = ET.fromstring(response.text)
