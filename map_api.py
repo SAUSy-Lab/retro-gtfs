@@ -76,21 +76,26 @@ class match(object):
 
 	def may_be_improved(self):
 		"""can this match likely be improved by anything we can control here?"""
+		# check for error codes in the response
 		if self.response['code'] != 'Ok':
 			self.is_useable = False
 			return False
-		# estimate the match confidence
+		# estimate the match(es) confidence
 		confidences = [ m['confidence'] for m in self.response['matchings'] ]
 		self.confidence = mean(confidences)
-		# TODO testing
-		return False
-		if (
-			self.confidence / len(self.response['matchings']) < 0.2
-			and self.error_radius < 2*conf['error_radius']
-		):
-			return True
-		else:
+		# if the confidence is literally zero
+		if self.confidence == 0:
+			self.is_useable = False
 			return False
+#		# TODO I was testing a thing here, but have left off
+		return False
+#		if (
+#			self.confidence / len(self.response['matchings']) < 0.2
+#			and self.error_radius < 2*conf['error_radius']
+#		):
+#			return True
+#		else:
+#			return False
 
 
 	def geometry(self):
