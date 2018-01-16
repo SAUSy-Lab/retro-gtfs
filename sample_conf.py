@@ -40,5 +40,9 @@ conf = {
 	'localEPSG':32723,
 	'timezone':-4,
 	# distance threshold for stop matching in meters
-	'stop_dist':30
+	'stop_dist':30,
+	# estimated GPS error radius in meters
+	# this applies to all points and effects map-matching
+	# higher values include more potential matches but take longer to process
+	'error_radius':20
 }
