@@ -25,7 +25,7 @@ CREATE TABLE :stops_table (
 	stop_code integer, -- public_id
 	lon numeric,
 	lat numeric,
-	the_geom geometry(POINT,26917),
+	the_geom geometry( POINT, :EPSG ),
 	report_time double precision, -- epoch time
 	active boolean DEFAULT TRUE -- debugging flag
 );
@@ -59,7 +59,7 @@ CREATE INDEX ON :directions_table (direction_id);
 DROP TABLE IF EXISTS :trips_table;
 CREATE TABLE :trips_table (
 	trip_id integer PRIMARY KEY,
-	orig_geom geometry(LINESTRING,26917),	-- geometry of all points
+	orig_geom geometry( LINESTRING, :EPSG ),	-- geometry of all points
 	times double precision[], -- sequential report_times, corresponding to points on orig_geom
 	route_id varchar,
 	direction_id varchar,
@@ -69,8 +69,8 @@ CREATE TABLE :trips_table (
 	match_confidence real,
 	ignore boolean DEFAULT TRUE,	-- this trip has not been processed or has been unsucessfully
 	-- debugging fields
-	match_geom geometry(MULTILINESTRING,26917), -- map-matched route geometry
-	clean_geom geometry(LINESTRING,26917), -- geometry of points used in map matching
+	match_geom geometry( MULTILINESTRING, :EPSG ), -- map-matched route geometry
+	clean_geom geometry( LINESTRING, :EPSG ), -- geometry of points used in map matching
 	problem varchar DEFAULT '', -- description of any problems that arise
 	active boolean DEFAULT TRUE -- debugging flag
 );
