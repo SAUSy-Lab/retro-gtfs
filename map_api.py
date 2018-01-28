@@ -48,7 +48,7 @@ class match(object):
 			'geometries':'geojson',
 			'annotations':'false',
 			'overview':'full',
-			'gaps':'split', # split the track based on big time gaps?
+			'gaps':'ignore', # don't split based on time gaps - shouldn't be any
 			'tidy':'true',
 			'generate_hints':'false'
 		}
