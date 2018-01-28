@@ -1,27 +1,70 @@
-﻿-- calendar dates
+/*
+	This script pulls the data out of the database into CSV text files that 
+	should conform to the requirements of the GTFS specification:
+	https://developers.google.com/transit/gtfs/reference/
+	It uses psql variables to minimize the necessary editing, and so it 
+	shuld be run with psql. Be sure to change the variables just below to 
+	match your own configuration.
+
+	Just as a note, this was tested on psql version 9.5
+*/
+
+-- set your table names
+\set stops_table       agency_stops
+\set directions_table  agency_directions
+\set trips_table       agency_trips
+\set stop_times_table  agency_stop_times
+-- timezone offset
+\set tzoffset          -4
+-- where to save the output
+\set outdir            '/home/you/retro-gtfs/output/'
+-- stop configuration past here... just setting output locations from 
+-- the above because concatenation is complicated
+\set filename          'calendar_dates.txt'
+\set calendar_dates    :outdir:filename
+\set filename          'stops.txt'
+\set stops             :outdir:filename
+\set filename          'routes.txt'
+\set routes            :outdir:filename
+\set filename          'trips.txt'
+\set trips             :outdir:filename
+\set filename          'stop_times.txt'
+\set stop_times        :outdir:filename
+\set filename          'shapes.txt'
+\set shapes            :outdir:filename
+
+-- make calendar_dates.txt
 COPY(
-	SELECT 
+	SELECT
 		service_id,
 		to_char(TIMESTAMP 'EPOCH' + (service_id * INTERVAL '1 day'),'YYYYMMDD') AS date,
 		1 AS exception_type
-	FROM (SELECT DISTINCT service_id FROM ttc_trips WHERE NOT ignore) AS s
+	FROM (SELECT DISTINCT service_id FROM :trips_table WHERE NOT ignore) AS s
 	ORDER BY service_id ASC
-) TO '/home/nate/retro-gtfs/output/ttc/calendar_dates.txt' CSV HEADER;
+) TO :'calendar_dates' CSV HEADER;
 
-/*
--- stops
-COPY (
-	SELECT
-		stop_id,
-		stop_code::varchar,
-		stop_name,
-		lat AS stop_lat,
-		lon AS stop_lon
-	FROM ttc_stops 
-	WHERE stop_id IN (SELECT DISTINCT stop_id FROM ttc_stop_times WHERE trip_id < 10000)
-) TO '/home/nate/retro-gtfs/output/ttc/stops.txt' CSV HEADER;
-*/
--- TODO testing fake stop_ids
+
+-- we may need to fudge some stop ID's in case any happen to be repeated 
+-- for a trip
+-- TODO add an IF NOT EXISTS for version 9.6
+--ALTER TABLE :stop_times_table ADD COLUMN fake_stop_id varchar;
+WITH sub AS (
+	SELECT 
+		trip_id,
+		stop_sequence,
+		stop_id  || repeat(
+			'_'::text,
+			(row_number() OVER (PARTITION BY trip_id, stop_id ORDER BY etime ASC))::int - 1
+		) AS fake_id
+	FROM :stop_times_table
+	ORDER BY trip_id,stop_sequence ASC
+)
+UPDATE :stop_times_table AS st SET fake_stop_id = fake_id
+FROM sub 
+WHERE st.trip_id = sub.trip_id AND st.stop_sequence = sub.stop_sequence;
+
+
+-- make stops.txt
 COPY (
 	SELECT
 		fake_stop_id AS stop_id,
@@ -30,12 +73,13 @@ COPY (
 		lat AS stop_lat,
 		lon AS stop_lon
 	FROM 
-		(SELECT DISTINCT fake_stop_id FROM ttc_stop_times) AS f JOIN
-		ttc_stops AS s
+		(SELECT DISTINCT fake_stop_id FROM :stop_times_table) AS f JOIN
+		:stops_table AS s
 		ON btrim(f.fake_stop_id,'_') = s.stop_id
-) TO '/home/nate/retro-gtfs/output/ttc/stops.txt' CSV HEADER;
+) TO :'stops' CSV HEADER;
 
--- routes
+
+-- make routes.txt
 COPY (
 	SELECT 
 		DISTINCT
@@ -43,12 +87,13 @@ COPY (
 			1 AS agency_id, -- all the same agency 
 			route_id::varchar AS route_short_name,
 			'' AS route_long_name,
-			3 AS route_type -- they are all bus for now
-	FROM ttc_trips
+			3 AS route_type -- LET THEM RIDE BUSES
+	FROM :trips_table
 	WHERE NOT ignore
-) TO '/home/nate/retro-gtfs/output/ttc/routes.txt' CSV HEADER;
+) TO :'routes' CSV HEADER;
 
--- trips
+
+-- make trips.txt
 COPY (
 	SELECT
 		t.route_id::varchar,
@@ -56,9 +101,10 @@ COPY (
 		t.trip_id,
 		t.block_id,
 		'shp_'||trip_id AS shape_id
-	FROM ttc_trips AS t
+	FROM :trips_table AS t
 	WHERE NOT ignore
-) TO '/home/nate/retro-gtfs/output/ttc/trips.txt' CSV HEADER;
+) TO :'trips' CSV HEADER;
+
 
 -- stop_times
 COPY (
@@ -67,36 +113,35 @@ COPY (
 		-- time formatting nightmare
 		-- TODO note the timezones in the time calculations
 		(
-			to_char( (etime-4*3600-service_id*86400)::int / 3600, 'fm00' ) ||':'||
-			to_char( (etime-4*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) ||':'||
-			to_char( (etime-4*3600-service_id*86400)::int % 60, 'fm00' )
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int / 3600, 'fm00' ) ||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) ||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 60, 'fm00' )
 		) AS arrival_time,
 		(
-			to_char( (etime-4*3600-service_id*86400)::int / 3600, 'fm00' ) ||':'||
-			to_char( (etime-4*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) ||':'||
-			to_char( (etime-4*3600-service_id*86400)::int % 60, 'fm00' )
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int / 3600, 'fm00' ) ||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) ||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 60, 'fm00' )
 		) AS departure_time,
-		-- TODO testing
-		fake_stop_id AS stop_id,
-		stop_sequence
-	FROM ttc_stop_times AS st JOIN ttc_trips AS t ON st.trip_id = t.trip_id
+		stop_sequence,
+		fake_stop_id AS stop_id
+	FROM :stop_times_table AS st JOIN :trips_table AS t ON st.trip_id = t.trip_id
 	WHERE NOT t.ignore -- not actually necessary
 	ORDER BY trip_id, stop_sequence ASC
-	
-) TO '/home/nate/retro-gtfs/output/ttc/stop_times.txt' CSV HEADER;
+) TO :'stop_times' CSV HEADER;
 
--- shapes
+
+-- make shapes.txt
 -- this simply fills in the gaps in multilines
 COPY (
 	SELECT 
 		shape_id,
 		-- path is an array of [line number, point number]
 		row_number() OVER (PARTITION BY shape_id ORDER BY path ASC) AS shape_pt_sequence,
-		ST_X(ST_Transform(geom,4326))::double precision AS shape_pt_lon,
-		ST_Y(ST_Transform(geom,4326))::double precision AS shape_pt_lat
+		ST_X(ST_Transform(geom,4326))::real AS shape_pt_lon,
+		ST_Y(ST_Transform(geom,4326))::real AS shape_pt_lat
 	FROM ( SELECT
 		'shp_'||trip_id AS shape_id,
 		(ST_DumpPoints(ST_Simplify(match_geom,10))).*
-	FROM ttc_trips
+	FROM :trips_table
 	WHERE NOT ignore) AS sub
-) TO '/home/nate/retro-gtfs/output/ttc/shapes.txt' CSV HEADER;
+) TO :'shapes' CSV HEADER;
