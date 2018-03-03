@@ -10,14 +10,14 @@
 */
 
 -- set your table names
-\set stops_table       agency_stops
-\set directions_table  agency_directions
-\set trips_table       agency_trips
-\set stop_times_table  agency_stop_times
+\set stops_table       jv_stops
+\set directions_table  jv_directions
+\set trips_table       jv_trips
+\set stop_times_table  jv_stop_times
 -- timezone offset
 \set tzoffset          -4
 -- where to save the output
-\set outdir            '/home/you/retro-gtfs/output/'
+\set outdir            '/home/nate/retro-gtfs/output/jv/'
 -- stop configuration past here... just setting output locations from 
 -- the above because concatenation is complicated
 \set filename          'calendar_dates.txt'

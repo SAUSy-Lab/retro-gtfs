@@ -16,7 +16,7 @@ class match(object):
 		self.confidence = None					# average match confidence
 		self.geom = MultiLineString()			# multiline shapely geom
 		self.error_radius = conf['error_radius']
-		self.use_times = True					# whether times are sent to OSRM
+		self.use_times = False					# whether times are sent to OSRM
 		self.response = {}						# python-parsed formerly-JSON object
 		self.is_useable = True					# good enough to be used elsewhere?
 		self.num_attempts = 0
