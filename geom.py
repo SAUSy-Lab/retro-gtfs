@@ -5,6 +5,8 @@ from math import sqrt
 def cut(lines, distance):
 	"""Cuts a MultiLineString into two MultiLineStrings at a distance from 
 		the starting point, returns a tuple."""
+	assert distance >= 0
+	assert lines.__class__.__name__ == 'MultiLineString'
 	if distance <= 0:
 		return ( MultiLineString(), lines )
 	elif distance >= lines.length:

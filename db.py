@@ -2,6 +2,7 @@
 import psycopg2, json, math
 from conf import conf
 from shapely.wkb import loads as loadWKB
+from minor_objects import Stop, Vehicle
 
 # connect and establish a cursor, based on parameters in conf.py
 conn_string = (
@@ -35,7 +36,6 @@ def get_trip_attributes(trip_id):
 				direction_id,
 				route_id,
 				vehicle_id,
-				(ST_DumpPoints(orig_geom)).geom,
 				(ST_DumpPoints(ST_Transform(orig_geom,4326))).geom,
 				unnest(times)
 			FROM {trips}
@@ -43,23 +43,19 @@ def get_trip_attributes(trip_id):
 		""".format(**conf['db']['tables']),
 		{ 'trip_id':trip_id }
 	)
-	points = []
-	for (bid, did, rid, vid, geom, wgs84geom, time ) in c:
+	vehicle_records = []
+	for (bid, did, rid, vid, WGS84geom, epoch_time ) in c:
 		# only consider the last three variables, as the rest are 
 		# the same for every record
-		wgs84geom = loadWKB(wgs84geom,hex=True)
-		points.append({
-			'geom':loadWKB(geom,hex=True),
-			'time':time,
-			'lat': wgs84geom.y,
-			'lon': wgs84geom.x
-		})
+		WGS84geom = loadWKB(WGS84geom,hex=True)
+		# Vehicle( epoch_time, longitude, latitude)
+		vehicle_records.append( Vehicle( epoch_time, WGS84geom.x, WGS84geom.y ) )
 	result = {
-		'block_id':bid,
-		'direction_id':did,
-		'route_id':rid,
-		'vehicle_id':vid,
-		'points':points
+		'block_id': bid,
+		'direction_id': did,
+		'route_id': rid,
+		'vehicle_id': vid,
+		'points': vehicle_records
 	}
 	return result
 
@@ -205,29 +201,41 @@ def insert_trip(trip_id,block_id,route_id,direction_id,vehicle_id,times,orig_geo
 	)
 
 
-def get_stops(direction_id,trip_time):
-	"""given the direction id, and the time of the trip, get a list of stops and 
-		their attributes from the schedule data, returning as a dictionary. 
-		Need to make temporally relevant choices. trip_time is an epoch value"""
+def get_direction_uid(direction_id,trip_time):
+	"""Find the correct direction entry based on the direction_id and the time
+		of the trip. Trip_time is an epoch value, direction_id is a string."""
 	c = cursor()
-	# get stop_ids from the last reported direction 
-	# (from the perspective of this trip)
 	c.execute(
 		"""
-			SELECT 
-				unnest(stops) AS stop_id
-			FROM {directions} 
-			WHERE uid = (
-				SELECT uid 
-				FROM {directions}
-				WHERE 
-					direction_id = %(direction_id)s AND 
-					report_time <= %(trip_time)s
-				ORDER BY report_time DESC
-				LIMIT 1
-			)
+			SELECT uid 
+			FROM {directions}
+			WHERE 
+				direction_id = %(direction_id)s AND 
+				report_time <= %(trip_time)s
+			ORDER BY report_time DESC
+			LIMIT 1
 		""".format(**conf['db']['tables']),
 		{ 'direction_id':direction_id, 'trip_time':trip_time }
+	)
+	uid, = c.fetchone()
+	return uid
+
+
+def get_stops(direction_id, trip_time):
+	"""Get a list of stops and their attributes from the schedule data, 
+		returning as a dictionary."""
+	c = cursor()
+	# get the uid of the relevant direction entry
+	uid = get_direction_uid(direction_id,trip_time)
+	if not uid: return None
+	# find the stops
+	c.execute(
+		"""
+			SELECT unnest(stops) AS stop_id
+			FROM {directions} 
+			WHERE uid =  %(uid)s
+		""".format(**conf['db']['tables']),
+		{ 'uid':uid }
 	)
 	# list of stop_ids
 	stop_ids = [ stop_id for (stop_id,) in c.fetchall() ]
@@ -251,13 +259,32 @@ def get_stops(direction_id,trip_time):
 		""".format(**conf['db']['tables']),
 		{ 'trip_time':trip_time, 'stop_ids':tuple(stop_ids) }
 	)
-	stops = []
-	for (stop_id,geom) in c.fetchall():
-		stops.append({
-			'id':stop_id,
-			'geom':geom
-		})
-	return stops
+	# return a list of stop objects
+	return [ Stop( stop_id, geom ) for stop_id, geom in c.fetchall() ]
+
+
+def get_route_geom(direction_id, trip_time):
+	"""Get the geometry of a direction or return None. This is meant to be a 
+		backup in case map-matching is going badly. Direction geometries must be 
+		supplied manually. If all goes well this returns a shapely geometry in
+		the local projection. Else, None."""
+	c = cursor()
+	# get the uid of the relevant direction entry
+	uid = get_direction_uid(direction_id,trip_time)
+	if not uid: return None
+	# now find the geometry
+	c.execute(
+		"""
+			SELECT 
+				route_geom
+			FROM {directions} 
+			WHERE uid = %(uid)s;
+		""".format(**conf['db']['tables']),
+		{ 'uid':uid }
+	)
+	geom, = c.fetchone()
+	if geom: return loadWKB(geom,hex=True)
+	else: return None
 
 
 def set_trip_clean_geom(trip_id,localWKBgeom):
@@ -279,13 +306,16 @@ def set_trip_clean_geom(trip_id,localWKBgeom):
 
 def store_timepoints(trip_id,timepoints):
 	"""store the estimated stop times for a trip"""
+	assert len(timepoints) > 1
 	c = cursor()
+	# be sure the timepoints are in ascending temporal order
+	timepoints = sorted(timepoints,key=lambda tp: tp.arrival_time) 
 	# insert the stops
 	records = []
 	seq = 1
 	for timepoint in timepoints:
 		# list of tuples
-		records.append( (trip_id,timepoint['stop_id'],timepoint['time'],seq) )
+		records.append( (trip_id,timepoint.stop_id,timepoint.arrival_time,seq) )
 		seq += 1
 	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
 	c.execute("INSERT INTO {stop_times} (trip_id, stop_id, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)

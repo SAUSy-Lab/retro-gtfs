@@ -9,6 +9,7 @@ from conf import conf
 from shapely.wkb import loads as loadWKB, dumps as dumpWKB
 from shapely.ops import transform as reproject
 from shapely.geometry import Point, asShape, LineString, MultiLineString
+from minor_objects import Vehicle
 
 class trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -25,18 +26,17 @@ class trip(object):
 		self.vehicle_id = -1			# int
 		self.last_seen = -1			# last vehicle report (epoch time)
 		# initialize sequence
-		self.seq = 1					# sequence which increments at each report
+		self.seq = 1					# sequence which increments at each vehicle report
 		# declare several vars for later in the matching process
-		self.speed_string = ""		# str
-		self.match_confidence = -1	# 0 - 1 real
-		self.stops = []				# stop objects for this route
-		self.timepoints = []			# copies of stops with arrival times added
-		self.segment_speeds = []	# reported speeds of all segments
-		self.waypoints = []			# points on the finallized trip only
-		self.length = 0				# length in meters of current string
+		self.speed_string = ""		# str for error cleaning
+		self.segment_speeds = []	# reported speeds of all segments (error cleaning)
+		self.length = 0				# length in meters of current GPS trace
 		self.vehicles = []			# ordered vehicle records
-		self.ignored_vehicles = []	# discarded records
-		self.match_geom = None		# map-matched linestring 
+		self.ignored_vehicles = []	# discarded vehicle records
+		self.stops = []				# Stop objects for this route
+		self.timepoints = []			# Timepoint objects for this trip
+		self.waypoints = []			# points on the finallized trip only
+		self.match = None				# match object created during processing
 
 
 	@classmethod
@@ -69,7 +69,7 @@ class trip(object):
 		Trip.route_id = dbta['route_id']
 		Trip.vehicle_id = dbta['vehicle_id']
 		Trip.vehicles = dbta['points']
-		Trip.last_seen = Trip.vehicles[-1]['time']
+		Trip.last_seen = Trip.vehicles[-1].time
 		# this is being REprocessed so clean up any traces of the 
 		# result of earlier processing so that we have a fresh start
 		db.scrub_trip(trip_id)
@@ -77,18 +77,9 @@ class trip(object):
 
 
 	def add_point(self,lon,lat,etime):
-		"""add a vehicle location (which has just been observed) to the end 
-			of this trip"""
-		point = {
-			# time past the epoch in seconds
-			'time':etime, 
-			# shapely geom in local meter-based projection
-			'geom': reproject( conf['projection'], Point(lon,lat) ),
-			# these are for input into OSRM without reprojection
-			'lon':lon,
-			'lat':lat
-		}
-		self.vehicles.append(point)
+		"""Add a vehicle location (which has just been observed) to the end 
+			of this trip."""
+		self.vehicles.append( Vehicle( etime, lon, lat ) )
 
 
 	def save(self):
@@ -99,7 +90,7 @@ class trip(object):
 			process() as data is being collected."""
 		times = []
 		for v in self.vehicles:
-			times.append(v['time'])
+			times.append( v.time )
 		db.insert_trip(
 			self.trip_id,
 			self.block_id,
@@ -132,7 +123,8 @@ class trip(object):
 		# trip is clean, so store the cleaned line 
 		db.set_trip_clean_geom(self.trip_id,self.get_geom())
 		# and begin matching
-		self.match()
+		self.map_match_trip()
+		self.interpolate_stop_times()
 
 
 	def get_geom(self):
@@ -140,13 +132,12 @@ class trip(object):
 			in the local projection"""
 		line = []
 		for v in self.vehicles:
-			line.append(v['geom'])
+			line.append( v.geom )
 		return dumpWKB(LineString(line),hex=True)
 
 
 	def get_segment_speeds(self):
-		"""return speeds (kmph) on the segments between vehicles
-			non-ignored only and using shapely"""
+		"""Return speeds (kmph) on the segments between non-ignored vehicles."""
 		# iterate over segments (i-1)
 		dists = []	# km
 		times = []	# hours
@@ -154,75 +145,46 @@ class trip(object):
 			v1 = self.vehicles[i-1]
 			v2 = self.vehicles[i]
 			# distance in kilometers
-			dists.append( v1['geom'].distance(v2['geom'])/1000 )
+			dists.append( v1.geom.distance(v2.geom)/1000 )
 			# time in hours
-			times.append( (v2['time']-v1['time'])/3600 )
+			times.append( (v2.time-v1.time)/3600 )
 		# set the total distance
 		self.length = sum(dists)
 		# calculate speeds
 		return [ d/t for d,t in zip(dists,times) ]
 
 
-	def match(self):
-		"""Match the trip to the road network, and do all the
-			things that follow therefrom."""
-		match = map_api.match(self.vehicles)				
-		if not match.is_useable:
+	def map_match_trip(self):
+		"""1) Match the trip GPS points to the road network, id est, improve
+			the spatial accuracy of the trip.
+			2) Get the location/measure of stops and vehicles along the path.
+			4) Interpolate sequence of stop_times from vehicle times."""
+		# create a match object, passing it this trip to get it started
+		self.match = map_api.match(self)
+		if not self.match.is_useable:
 			return db.ignore_trip(self.trip_id,'match problem')
-		self.match_confidence = match.confidence
-		# store the trip geometry
-		self.match_geom = match.geometry()
-		# and reproject it
-		self.match_geom = reproject( conf['projection'], self.match_geom )
-		# simplify slightly for speed (2 meter simplification)
-		self.match_geom = self.match_geom.simplify(2)
-		# if the multi actually just had one line, this simplifies to a 
-		# linestring, which can cause problems down the road
-		if self.match_geom.geom_type == 'LineString':
-			self.match_geom = MultiLineString([self.match_geom])
 		# store the match info and geom in the DB
 		db.add_trip_match(
 			self.trip_id,
-			self.match_confidence,
-			dumpWKB(self.match_geom,hex=True)
+			self.match.confidence,
+			dumpWKB(self.match.geometry,hex=True)
 		)
-		# drop vehicles that did not contribute to the match 
-		vehicles_used = match.vehicles_used()
-		for i in reversed( range( 0, len(self.vehicles) ) ):
-			if not vehicles_used[i]: del self.vehicles[i]
-		# get distances of each vehicle along the match geom
-		for vehicle,cum_dist in zip( self.vehicles, match.cum_distances() ):
-			vehicle['cum_dist'] = cum_dist
-		# However, because we've simplified the line, the distances will be slightly off
-		# and need correcting 
-		adjust_factor = self.match_geom.length / self.vehicles[-1]['cum_dist']
-		for v in self.vehicles:
-			v['cum_dist'] = v['cum_dist'] * adjust_factor
-		# get the stops as a list of objects
-		# with keys {'id':stop_id,'g':geom}
+		# find the measure of the vehicles for time interpolation
+		self.match.locate_vehicles_on_route()
+
+
+	def interpolate_stop_times(self):
+		"""Interpolates stop times after map matching."""
+		if not self.match.is_useable:
+			return
+		# get the stops (as a list of Stop objects)
 		self.stops = db.get_stops(self.direction_id,self.last_seen)
-		# process the geoms
-		for stop in self.stops:
-			stop['geom'] = loadWKB(stop['geom'],hex=True)
-		# now match stops to the trip geometry, 750m at a time
-		path = self.match_geom
-		traversed = 0
-		# while there is more than 750m of path remaining
-		while path.length > 0:
-			subpath, path = cut(path,750)
-			# check for nearby stops
-			for stop in self.stops:
-				# if the stop is close enough
-				stop_dist = subpath.distance(stop['geom'])
-				if stop_dist <= conf['stop_dist']:
-					# measure how far it is along the trip
-					measure = traversed + subpath.project(stop['geom'])
-					# add it to a list of possible stop times
-					self.add_arrival(stop['id'],measure,stop_dist)
-			# note what we have already traversed
-			traversed += 750
-		# sort stops by arrival time
-		self.timepoints = sorted(self.timepoints,key=lambda k: k['time'])
+		# locate the stops on the route. This generates a list of timepoints
+		# with measures but without times. These are sorted already by measure
+		self.timepoints = self.match.locate_stops_on_route()
+		# interpolate times for each timepoint
+		for timepoint in self.timepoints:
+			timepoint.set_time( self.interpolate_time(timepoint.measure) )
 		# there is more than one stop, right?
 		if len(self.timepoints) > 1:
 			# store the stop times
@@ -231,7 +193,7 @@ class trip(object):
 			# the unix epoch, which is centered on Greenwich.
 			# (The service_id is distinct to a day in the local timezone)
 			# First, shift the second_based epoch to local time
-			tlocal = self.timepoints[0]['time'] + conf['timezone']*3600
+			tlocal = self.timepoints[0].arrival_time + conf['timezone']*3600
 			# then find the "epoch day"
 			service_id = math.floor( tlocal / (24*3600) )
 			# and store it in the DB
@@ -239,35 +201,6 @@ class trip(object):
 		else:
 			db.ignore_trip(self.trip_id,'one or fewer timepoints')
 		return
-
-
-	def add_arrival(self,stop_id,measure,distance):
-		"""take an observed stop on a trip and decide if 
-			A) this is a legit stop
-			B) this is an artifact of the trip splitting procedure
-			store the information necessary for the stop_times table"""
-		# check for B
-		for timepoint in self.timepoints:
-			# same stop id and close to the same position?
-			if timepoint['stop_id']==stop_id and abs(timepoint['measure']-measure) < 2*conf['stop_dist']:
-				# keep the one that is closer
-				if timepoint['distance'] <= distance:
-					# the stop we already have is closer
-					return
-				else:	
-					# the new stop is closer					
-					timepoint['measure'] = measure
-					timepoint['dist'] = distance
-					timepoint['time'] = self.interpolate_time(measure)
-					return
-		# we don't have anything like this stop yet, so add it
-		# though we may actually have seen this stop already
-		self.timepoints.append({
-			'stop_id':stop_id,
-			'measure':measure,
-			'distance':distance,
-			'time':self.interpolate_time(measure)
-		})
 
 
 	def ignore_vehicle(self,index):
@@ -350,11 +283,11 @@ class trip(object):
 		for point in self.vehicles:
 			if first:
 				first = False
-				m1 = point['cum_dist']
-				t1 = point['time'] # time
+				m1 = point.measure
+				t1 = point.time
 				continue
-			m2 = point['cum_dist']
-			t2 = point['time']
+			m2 = point.measure
+			t2 = point.time
 			if m1 <= distance_along_trip <= m2:	# intersection is at or between these points
 				# interpolate the time
 				if distance_along_trip == m1:
@@ -368,10 +301,25 @@ class trip(object):
 		# between any waypoints. This is probably a precision issue and the 
 		# stop should be right off one of the ends.
 		if distance_along_trip == 0:
-			return self.vehicles[0]['time'] - 5
+			return self.vehicles[0].time - 5
 		# vv stop is off the end
 		else:
-			print '\t\tstop off by',distance_along_trip - self.vehicles[-1]['cum_dist'],'meters for trip',self.trip_id
-			return self.vehicles[-1]['time'] + 5
+			print '\t\tstop off by',distance_along_trip - self.vehicles[-1].measure,'meters for trip',self.trip_id
+			return self.vehicles[-1].time + 5
+
+
+#	def measure_stops(self):
+#		"""Find the measure of stops along a route geometry. Should work the same 
+#			for OSRM or default route."""
+#		# match stops within a distance of the route geometry
+#		for stop in self.trip.stops:
+#			# if the stop is close enough
+#			distance_from_route = self.geometry.distance( stop.geom )
+#			if distance_from_route <= conf['stop_dist']:
+#				# measure how far it is along the trip
+#				measure = self.geometry.project( stop.geom )
+#				# add this information
+#				stop.set_measure(measure)
+#				stop.set_distance(distance_from_route) 
 
 
