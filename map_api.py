@@ -56,7 +56,7 @@ class match(object):
 	@property
 	def is_useable(self):
 		"""Is this match good enough actually to be used?"""
-		return self.confidence > 0.1
+		return self.confidence > 0.2
 
 
 	def query_OSRM(self):
@@ -135,8 +135,8 @@ class match(object):
 			print '\tdefault route used for',self.trip.direction_id
 		elif self.default_route_used and self.confidence == 0:
 			print '\tdefault route not found for',self.trip.direction_id
-		elif not self.default_route_used and self.confidence > 0.1:
-			print '\tOSRM match found with',self.confidence,'confidence on'
+		elif not self.default_route_used and self.confidence > 0.2:
+			print '\tOSRM match found with',round(self.confidence,3),'confidence'
 		else:
 			print '\tmatching failed for trip',self.trip.trip_id
 
@@ -237,35 +237,5 @@ class match(object):
 		# sort by measure ascending
 		final_timepoints = sorted(final_timepoints,key=lambda timepoint: timepoint.measure)
 		return final_timepoints
-
-
-	def add_arrival(self,stop_id,measure,distance):
-		"""take an observed stop on a trip and decide if 
-			A) this is a legit stop
-			B) this is an artifact of the trip splitting procedure
-			store the information necessary for the stop_times table"""
-		# check for B
-		for timepoint in self.timepoints:
-			# same stop id and close to the same position?
-			if timepoint['stop_id']==stop_id and abs(timepoint['measure']-measure) < 2*conf['stop_dist']:
-				# keep the one that is closer
-				if timepoint['distance'] <= distance:
-					# the stop we already have is closer
-					return
-				else:	
-					# the new stop is closer					
-					timepoint['measure'] = measure
-					timepoint['dist'] = distance
-					timepoint['time'] = self.interpolate_time(measure)
-					return
-		# we don't have anything like this stop yet, so add it
-		# though we may actually have seen this stop already
-		self.timepoints.append({
-			'stop_id':stop_id,
-			'measure':measure,
-			'distance':distance,
-			'time':self.interpolate_time(measure)
-})
-
 
 
