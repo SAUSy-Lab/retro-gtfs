@@ -204,20 +204,20 @@ class match(object):
 			while self.trip.vehicles != sorted(self.trip.vehicles,key=lambda v: v.measure):
 				correct_order = sorted(self.trip.vehicles,key=lambda v: v.measure)
 				current_order = self.trip.vehicles
-				trans_dists = {}
+				transpositions = {}
 				# compare all vehicles in both lists
 				for i,v1 in enumerate(correct_order):
 					for j,v2 in enumerate(current_order):
 						if v1 == v2:
 							if abs(i-j) > 0: # not in the same position
 								# add these vehicles to the list with their distances as keys
-								if abs(i-j) not in trans_dists: trans_dists[abs(i-j)] = [v1]
-								else: trans_dists[abs(i-j)].append(v1)
+								if abs(i-j) not in trans_dists: transpositions[abs(i-j)] = [v1]
+								else: transpositions[abs(i-j)].append(v1)
 							else: # are in the same position
 								continue
-				max_trans_dist = max(trans_dists.keys())
+				max_dist = max(transpositions.keys())
 				# ignore vehicles associated with the max of the transposition distances
-				for vehicle in trans_dists[max_trans_dist]:
+				for vehicle in transpositions[max_dist]:
 					self.trip.ignore_vehicle(vehicle)
 
 
