@@ -125,14 +125,14 @@ class match(object):
 		else: 
 			self.default_route_used = True
 			self.confidence = 1
-			self.geometry = MultiLineString(route_geom)
+			self.geometry = MultiLineString([route_geom])
 			return
 
 
 	def print_outcome(self):
 		"""Print the outcome of this match to stdout."""
 		if self.default_route_used and self.confidence == 1:
-			print '\tdefault route used for',self.trip.direction_id
+			print '\tdefault route used for direction',self.trip.direction_id
 		elif self.default_route_used and self.confidence == 0:
 			print '\tdefault route not found for',self.trip.direction_id
 		elif not self.default_route_used and self.confidence > 0.2:
@@ -184,8 +184,8 @@ class match(object):
 				# if the vehicle is close enough
 				distance_from_route = self.geometry.distance( vehicle.geom )
 				if distance_from_route <= conf['stop_dist']:
-					pass
-
+					m = self.geometry.project(vehicle.geom)
+					vehicle.set_measure(m)
 
 	def locate_stops_on_route(self):
 		"""Find the measure of stops along the route geometry for any arbitrary 
