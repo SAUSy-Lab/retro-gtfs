@@ -155,9 +155,10 @@ class match(object):
 			# null (None) entries indicate an omitted (outlier) point
 			# true where not none
 			drop_list = [ point is None for point in self.OSRM_response['tracepoints'] ]
-			# drop vehicles that did not contribute to the match 
-			for i in reversed( range( 0, len(self.trip.vehicles) ) ):
-				if drop_list[i]: del self.trip.vehicles[i]
+			# drop vehicles that did not contribute to the match,
+			# backwards to maintain order
+			for i in reversed( range( 0, len(drop_list) ) ):
+				if drop_list[i]: self.trip.ignore_vehicle( i )
 			# get cumulative distances of each vehicle along the match geom
 			# This is based on the leg distances provided by OSRM. Each leg is just 
 			# the trip between matched points. Each match has one more vehicle record 
@@ -178,14 +179,47 @@ class match(object):
 			for v in self.trip.vehicles:
 				v.measure = v.measure * adjust_factor
 		else: # default route used
-			print '\tthis function needs work'
 			# match stops within a distance of the route geometry
+			vehicles_to_ignore = []
 			for vehicle in self.trip.vehicles:
 				# if the vehicle is close enough
 				distance_from_route = self.geometry.distance( vehicle.geom )
 				if distance_from_route <= conf['stop_dist']:
 					m = self.geometry.project(vehicle.geom)
 					vehicle.set_measure(m)
+				else:
+					# ignore this vehicle
+					vehicles_to_ignore.append(vehicle)
+			# ignore vehicles not close enough to the route
+			for vehicle in vehicles_to_ignore:
+				self.trip.ignore_vehicle( vehicle )
+			# now we're going to try this ambitious new drop-sorting algorithm. 
+			# basically, the string should mostly already be ordered by measure
+			# except for a few positions which will be transposed. I want to find
+			# the transposition distance of each vehicle from itself if the string
+			# were sorted by measure. Then I'll drop the vehicles with the largest
+			# transposition distance at each step
+			# 
+			# while the list is not fully sorted
+			while self.trip.vehicles != sorted(self.trip.vehicles,key=lambda v: v.measure):
+				correct_order = sorted(self.trip.vehicles,key=lambda v: v.measure)
+				current_order = self.trip.vehicles
+				trans_dists = {}
+				# compare all vehicles in both lists
+				for i,v1 in enumerate(correct_order):
+					for j,v2 in enumerate(current_order):
+						if v1 == v2:
+							if abs(i-j) > 0: # not in the same position
+								# add these vehicles to the list with their distances as keys
+								if abs(i-j) not in trans_dists: trans_dists[abs(i-j)] = [v1]
+								else: trans_dists[abs(i-j)].append(v1)
+							else: # are in the same position
+								continue
+				max_trans_dist = max(trans_dists.keys())
+				# ignore vehicles associated with the max of the transposition distances
+				for vehicle in trans_dists[max_trans_dist]:
+					self.trip.ignore_vehicle(vehicle)
+
 
 	def locate_stops_on_route(self):
 		"""Find the measure of stops along the route geometry for any arbitrary 

@@ -203,10 +203,21 @@ class trip(object):
 		return
 
 
-	def ignore_vehicle(self,index):
-		"""ignore a vehicle specified by the index"""
-		v = self.vehicles.pop(index)
-		self.ignored_vehicles.append(v)
+	def ignore_vehicle(self,var):
+		"""Ignore a vehicle specified by either the index in the current list
+			or by giving the vehicle object itself."""
+		if isinstance(var,int): # then using index
+			index = var
+			v = self.vehicles.pop(index)
+			self.ignored_vehicles.append(v)
+		elif isinstance(var,Vehicle):
+			vehicle = var
+			for index, v in enumerate(self.vehicles):
+				if v == vehicle:
+					self.vehicles.pop(index)
+					self.ignored_vehicles.append(v)
+		else:
+			print 'ERROR'
 
 
 	def has_errors(self):
