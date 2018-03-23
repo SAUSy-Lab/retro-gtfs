@@ -110,10 +110,9 @@ COPY (
 COPY (
 	SELECT 
 		t.trip_id,
-		-- time formatting nightmare
 		-- TODO note the timezones in the time calculations
-		(to_timestamp(round(etime)) at time zone :local_tz)::time AS arrival_time,
-		(to_timestamp(round(etime)) at time zone :local_tz)::time AS departure_time,
+		(to_timestamp(round(etime)) at time zone :'local_tz')::time AS arrival_time,
+		(to_timestamp(round(etime)) at time zone :'local_tz')::time AS departure_time,
 		stop_sequence,
 		fake_stop_id AS stop_id
 	FROM :stop_times_table AS st JOIN :trips_table AS t ON st.trip_id = t.trip_id
