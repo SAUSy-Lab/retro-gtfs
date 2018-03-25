@@ -221,15 +221,21 @@ class trip(object):
 
 
 	def has_errors(self):
-		"""see if the speed segments indicate that there are any 
-			fixable errors by making the speed string and checking
-			for fixeable patterns."""
-		# convert the speeds into a string
+		"""Each segment between GPS points is classified based on it's speed. 
+			See if the speed segments indicate that there are any fixable errors 
+			by making the speed string and checking for fixeable patterns."""
+		# convert the segment speeds into a string with three possible characters
+		# 'x' indicates very high speed
+		# 'o' indicates very low speed (essentially no motion)
+		# '-' indicates moderate speed
+		# e.g. 'oo---o----xx----------' and so pn
 		self.speed_string = ''.join([ 
 			'x' if seg > 120 else 'o' if seg < 0.1 else '-'
 			for seg in self.segment_speeds ])
-		# do RegEx search for 'x' or 'oo'
-		match_oo = re.search('oo',self.speed_string)
+		print '\t',self.speed_string
+		# check for slow segments that can be fixed
+		match_oo = re.search('oo|^o|o$',self.speed_string)
+		# check for any very fast segments (all will be fixed)
 		match_x = re.search('x',self.speed_string)
 		if match_oo or match_x:
 			return True
