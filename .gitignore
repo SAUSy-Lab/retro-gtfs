@@ -9,3 +9,10 @@ conf.py
 
 # hidden development files
 private/
+
+# agency specific configuration files
+conf-*.py
+
+# agency specific output
+output/*
+!output/agency/
