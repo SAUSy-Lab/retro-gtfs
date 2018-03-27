@@ -70,9 +70,6 @@ class Trip(object):
 		Trip.vehicle_id = dbta['vehicle_id']
 		Trip.vehicles = dbta['points']
 		Trip.last_seen = Trip.vehicles[-1].time
-		# this is being REprocessed so clean up any traces of the 
-		# result of earlier processing so that we have a fresh start
-		db.scrub_trip(trip_id)
 		return Trip
 
 
@@ -104,6 +101,10 @@ class Trip(object):
 
 	def process(self):
 		"""A trip has just ended. What do we do with it?"""
+		# As this may be being REprocessed we need to clean up any traces of the 
+		# result of earlier processing so that we have a fresh start
+		db.scrub_trip(self.trip_id)
+		# see if we have enough stuff to bother with
 		if len(self.vehicles) < 5: # km
 			return db.ignore_trip(self.trip_id,'too few vehicles')
 		# calculate vector of segment speeds
