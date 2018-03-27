@@ -2,21 +2,34 @@
 
 import db
 from trip import Trip
+from numpy import percentile, median 
 
-mode = raw_input('Processing mode (single, all, or route) --> ')
+mode = raw_input('Mode (single, all, or route) --> ')
 
 
-def assess_trips(list_of_trip_ids):
+def assess_trips(trip_ids):
 	"""Given a list of trips, come up with basic quality measures for each, 
 		then aggregate and print the results."""
-	for trip_id in list_of_trip_ids:
+	# define variables to store metrics
+	stop_ratios = []
+	trips_wo_stops = []
+	# iterate over trips
+	for trip_id in trip_ids:
+		# pull in the necessary data for a trip
 		trip = Trip.fromDB(trip_id)
 		stops = db.get_stops(trip.direction_id,trip.last_seen)
 		timepoints = db.get_timepoints(trip.trip_id)
-		print trip.trip_id
-		print len(stops)
-		print timepoints
-
+		# start calculating metrics and appending them to lists
+		# 
+		# ratio of timepoints / stops 
+		stop_ratios.append( len(timepoints) / float(len(stops)) )
+		# trips with no stops
+		if len(timepoints) == 0:
+			trips_wo_stops.append(trip.trip_id)
+		
+	# stdout
+	print 'stop ratios:', percentile(stop_ratios,[0,25,50,75,100])
+	print 'trips without stops:',len(trips_wo_stops),'/',len(trip_ids)
 
 # single mode enters one trip at a time and stops when 
 # a non-integer is entered
