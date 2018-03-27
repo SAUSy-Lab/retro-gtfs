@@ -321,6 +321,20 @@ def store_timepoints(trip_id,timepoints):
 	c.execute("INSERT INTO {stop_times} (trip_id, stop_id, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
 
 
+def get_timepoints(trip_id):
+	"""Essentially, this should be the inverse of the above function."""
+	c = cursor()
+	c.execute("""
+		SELECT stop_id, etime, stop_sequence
+		FROM {stop_times}
+		WHERE trip_id = %(trip_id)s
+		ORDER BY stop_sequence
+	""".format(**conf['db']['tables']),
+	{ 'trip_id':trip_id })
+	return c.fetchall()
+		
+
+
 def set_service_id(trip_id,service_id):
 	"""set the service_id of a trip"""
 	c = cursor()
