@@ -3,7 +3,7 @@
 import requests, time, db, random, sys
 import threading, multiprocessing
 import xml.etree.ElementTree as ET
-from trip import trip
+from trip import Trip
 from os import remove, path
 from conf import conf # configuration
 
@@ -79,7 +79,7 @@ def get_new_vehicles():
 			try: # have we seen this vehicle recently?
 				fleet[vid]
 			except: # haven't seen it! create a new trip
-				fleet[vid] = trip.new(next_trip_id,next_bid,did,rid,vid,report_time)
+				fleet[vid] = Trip.new(next_trip_id,next_bid,did,rid,vid,report_time)
 				# add this vehicle to the trip
 				fleet[vid].add_point(lon,lat,report_time)
 				# increment the trip and block counters
@@ -95,7 +95,7 @@ def get_new_vehicles():
 				# this trip is ending
 				ending_trips.append( fleet[vid] )
 				# create the new trip in it's place
-				fleet[vid] = trip.new(next_trip_id,last_bid,did,rid,vid,report_time)
+				fleet[vid] = Trip.new(next_trip_id,last_bid,did,rid,vid,report_time)
 				# add this vehicle to it
 				fleet[vid].add_point(lon,lat,report_time)
 				# increment the trip counter

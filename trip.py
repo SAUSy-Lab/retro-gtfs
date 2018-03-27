@@ -11,7 +11,7 @@ from shapely.ops import transform as reproject
 from shapely.geometry import Point, asShape, LineString, MultiLineString
 from minor_objects import Vehicle
 
-class trip(object):
+class Trip(object):
 	"""The trip class provides all the methods needed for dealing
 		with one observed trip/track. Classmethods provide two 
 		different ways of instantiating."""

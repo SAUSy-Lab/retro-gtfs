@@ -5,7 +5,7 @@
 
 import multiprocessing as mp
 from time import sleep
-from trip import trip
+from trip import Trip
 import db
 
 # let mode be one of ('single','range?')
@@ -15,7 +15,7 @@ def process_trip(valid_trip_id):
 	"""worker process called when using multiprocessing"""
 	print 'starting trip:',valid_trip_id
 	db.reconnect()
-	t = trip.fromDB(valid_trip_id)
+	t = Trip.fromDB(valid_trip_id)
 	t.process()
 
 # single mode enters one trip at a time and stops when 
@@ -25,7 +25,7 @@ if mode in ['single','s']:
 	while trip_id.isdigit():
 		if db.trip_exists(trip_id):
 			# create a trip object
-			this_trip = trip.fromDB(trip_id)
+			this_trip = Trip.fromDB(trip_id)
 			# process
 			this_trip.process()
 		else:
