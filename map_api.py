@@ -211,7 +211,7 @@ class match(object):
 						if v1 == v2:
 							if abs(i-j) > 0: # not in the same position
 								# add these vehicles to the list with their distances as keys
-								if abs(i-j) not in trans_dists: transpositions[abs(i-j)] = [v1]
+								if abs(i-j) not in transpositions: transpositions[abs(i-j)] = [v1]
 								else: transpositions[abs(i-j)].append(v1)
 							else: # are in the same position
 								continue

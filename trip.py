@@ -232,7 +232,6 @@ class trip(object):
 		self.speed_string = ''.join([ 
 			'x' if seg > 120 else 'o' if seg < 0.1 else '-'
 			for seg in self.segment_speeds ])
-		print '\t',self.speed_string
 		# check for slow segments that can be fixed
 		match_oo = re.search('oo|^o|o$',self.speed_string)
 		# check for any very fast segments (all will be fixed)
