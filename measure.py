@@ -30,6 +30,8 @@ def assess_trips(trip_ids):
 	# stdout
 	print 'stop ratios:', percentile(stop_ratios,[0,25,50,75,100])
 	print 'trips without stops:',len(trips_wo_stops),'/',len(trip_ids),'or',(len(trips_wo_stops)/float(len(trip_ids)))*100,'%'
+	# show the first ten trip_ids with no stops
+	print '\t',trips_wo_stops[:10]
 
 # single mode enters one trip at a time and stops when 
 # a non-integer is entered

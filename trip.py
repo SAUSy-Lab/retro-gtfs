@@ -122,19 +122,20 @@ class Trip(object):
 			# update the segment speeds for the next iteration
 			self.segment_speeds = self.get_segment_speeds()
 		# trip is clean, so store the cleaned line 
-		db.set_trip_clean_geom(self.trip_id,self.get_geom())
+		db.set_trip_clean_geom(
+			self.trip_id,
+			dumpWKB( self.get_geom(), hex=True )
+		)
 		# and begin matching
 		self.map_match_trip()
 		self.interpolate_stop_times()
 
 
 	def get_geom(self):
-		"""return a clean WKB geometry string using all vehicles
-			in the local projection"""
-		line = []
-		for v in self.vehicles:
-			line.append( v.geom )
-		return dumpWKB(LineString(line),hex=True)
+		"""Return a clean shapely geometry string using all vehicles
+			in the local projection. Equivalent to orig_geom field in 
+			the trips table."""
+		return LineString( [ v.geom for v in self.vehicles ] )
 
 
 	def get_segment_speeds(self):
