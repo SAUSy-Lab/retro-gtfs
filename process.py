@@ -52,11 +52,6 @@ elif mode == 'route':
 	route_id = raw_input('route_id --> ')
 	trip_ids = db.get_trip_ids_by_route(route_id)
 	print len(trip_ids),'trips on that route'
-	i_range = raw_input('of these, index range as start:end --> ')
-	i_range = i_range.split(':')
-	# subset to the given range
-	trip_ids = trip_ids[int(i_range[0]):int(i_range[1])]
-	# start dispatching
 	# how many parallel processes to use?
 	max_procs = int(raw_input('max processes --> '))
 	# create a pool of workers and pass them the data
