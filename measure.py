@@ -19,6 +19,9 @@ def assess_trips(trip_ids):
 		trip = Trip.fromDB(trip_id)
 		stops = db.get_stops(trip.direction_id,trip.last_seen)
 		timepoints = db.get_timepoints(trip.trip_id)
+		problem = db.get_trip_problem(trip_id)
+		if problem in ['too short','too few vehicles']:
+			continue
 		# start calculating metrics and appending them to lists
 		# 
 		# ratio of timepoints / stops 
@@ -29,7 +32,8 @@ def assess_trips(trip_ids):
 		
 	# stdout
 	print 'stop ratios:', percentile(stop_ratios,[0,25,50,75,100])
-	print 'trips without stops:',len(trips_wo_stops),'/',len(trip_ids),'or',(len(trips_wo_stops)/float(len(trip_ids)))*100,'%'
+	pct_wo_stops = round((len(trips_wo_stops)/float(len(trip_ids))),4)*100
+	print 'trips w/o stops:',len(trips_wo_stops),'/',len(trip_ids),'or',pct_wo_stops,'%'
 	# show the first ten trip_ids with no stops
 	print '\t',trips_wo_stops[:10]
 

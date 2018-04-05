@@ -303,6 +303,18 @@ def set_trip_clean_geom(trip_id,localWKBgeom):
 		}
 	)
 
+def get_trip_problem(trip_id):
+	"""What problem was associated with the processing of this trip?"""
+	c = cursor()
+	c.execute(
+		"""
+			SELECT problem FROM {trips} WHERE trip_id = %(trip_id)s;
+		""".format(**conf['db']['tables']),
+		{ 'trip_id':trip_id }
+	)
+	problem, = c.fetchone()
+	return problem if problem != '' else None
+
 
 def store_timepoints(trip_id,timepoints):
 	"""store the estimated stop times for a trip"""
