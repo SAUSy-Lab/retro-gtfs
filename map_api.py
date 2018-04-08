@@ -56,7 +56,7 @@ class match(object):
 	@property
 	def is_useable(self):
 		"""Is this match good enough actually to be used?"""
-		return self.confidence > 0.2
+		return self.confidence > 0.1
 
 
 	def query_OSRM(self):
