@@ -184,7 +184,7 @@ class Trip(object):
 		# locate the stops on the route. This generates a list of timepoints
 		# with measures but without times. These are sorted already by measure
 		self.timepoints = self.match.locate_stops_on_route()
-		# interpolate times for each timepoint
+		# interpolate/extrapolate times for each timepoint
 		for timepoint in self.timepoints:
 			timepoint.set_time( self.interpolate_time(timepoint.measure) )
 		# there is more than one stop, right?
@@ -292,52 +292,43 @@ class Trip(object):
 
 
 	def interpolate_time(self,distance_along_trip):
-		"""get the time for a stop by doing an interpolation on the trip times
+		"""Get the time for a stop by doing an interpolation on the trip times
 			and locations. We already know the m of the stop and of the points on 
-			the trip/track"""
-		# iterate over the segments of the trip, looking for the segment
-		# which holds the stop of interest
-		first = True
-		for point in self.vehicles:
-			if first:
-				first = False
-				m1 = point.measure
-				t1 = point.time
-				continue
-			m2 = point.measure
-			t2 = point.time
-			if m1 <= distance_along_trip <= m2:	# intersection is at or between these points
-				# interpolate the time
-				if distance_along_trip == m1:
-					return t1
-				percent_of_segment = (distance_along_trip - m1) / (m2 - m1)
-				additional_time = percent_of_segment * (t2 - t1) 
-				return t1 + additional_time
-			# create the segment for the next iteration
-			m1,t1 = m2,t2
-		# if we've made it this far, the stop was not technically on or 
-		# between any waypoints. This is probably a precision issue and the 
-		# stop should be right off one of the ends.
-		if distance_along_trip == 0:
-			return self.vehicles[0].time - 5
-		# vv stop is off the end
+			the trip/track."""
+		vfirst = self.vehicles[0]
+		vlast = self.vehicles[-1]
+		# if the stop is before the vehicle records
+		if distance_along_trip < vfirst.measure:
+			trip_speed = (vlast.time-vfirst.time)/(vlast.measure-vfirst.measure)
+			gap = distance_along_trip - vfirst.measure
+			# negative gap projects time forward
+			return vfirst.time + gap * trip_speed
+		# trip is off the back
+		elif distance_along_trip > vlast.measure:
+			trip_speed = (vlast.time-vfirst.time)/(vlast.measure-vfirst.measure)
+			gap = distance_along_trip - vlast.measure
+			# positive gap projects time backwards
+			return vlast.time + gap * trip_speed
+		# the stop is among vehicle records
 		else:
-			print '\t\tstop off by',distance_along_trip - self.vehicles[-1].measure,'meters for trip',self.trip_id
-			return self.vehicles[-1].time + 5
-
-
-#	def measure_stops(self):
-#		"""Find the measure of stops along a route geometry. Should work the same 
-#			for OSRM or default route."""
-#		# match stops within a distance of the route geometry
-#		for stop in self.trip.stops:
-#			# if the stop is close enough
-#			distance_from_route = self.geometry.distance( stop.geom )
-#			if distance_from_route <= conf['stop_dist']:
-#				# measure how far it is along the trip
-#				measure = self.geometry.project( stop.geom )
-#				# add this information
-#				stop.set_measure(measure)
-#				stop.set_distance(distance_from_route) 
-
+			# iterate over the segments of the trip, looking for the segment
+			# which holds the stop of interest
+			first = True
+			for point in self.vehicles:
+				if first:
+					first = False
+					m1 = point.measure
+					t1 = point.time
+					continue
+				m2 = point.measure
+				t2 = point.time
+				if m1 <= distance_along_trip <= m2:	# intersection is at or between these points
+					# interpolate the time
+					if distance_along_trip == m1:
+						return t1
+					percent_of_segment = (distance_along_trip - m1) / (m2 - m1)
+					additional_time = percent_of_segment * (t2 - t1) 
+					return t1 + additional_time
+				# create the segment for the next iteration
+				m1,t1 = m2,t2
 
