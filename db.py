@@ -222,44 +222,28 @@ def get_direction_uid(direction_id,trip_time):
 
 
 def get_stops(direction_id, trip_time):
-	"""Get a list of stops and their attributes from the schedule data, 
-		returning as a dictionary."""
+	"""Get an ordered list of Stop objects from the schedule data."""
 	c = cursor()
 	# get the uid of the relevant direction entry
 	uid = get_direction_uid(direction_id,trip_time)
 	if not uid: return None
-	# find the stops
-	c.execute(
+	c.execute(	
 		"""
-			SELECT unnest(stops) AS stop_id
-			FROM {directions} 
-			WHERE uid =  %(uid)s
-		""".format(**conf['db']['tables']),
-		{ 'uid':uid }
-	)
-	# list of stop_ids
-	stop_ids = [ stop_id for (stop_id,) in c.fetchall() ]
-	# now we need to get the data for the last reported stops with these IDs
-	c.execute(
-		"""
-			WITH m AS (
+			SELECT stop_id, the_geom FROM (
 				SELECT 
-					stop_id, max(report_time) AS max_report_time
-				FROM {stops}
-				WHERE 
-					stop_id IN %(stop_ids)s AND 
-					report_time <= %(trip_time)s
-				GROUP BY stop_id
-			)
-			SELECT 
-				s.stop_id, s.the_geom
-			FROM {stops} AS s JOIN m ON
-				s.stop_id = m.stop_id AND 
-				s.report_time = m.max_report_time
+					DISTINCT ON (a.stop) a.stop AS stop_id,
+					a.seq,
+					s.the_geom
+				FROM {directions} AS d, unnest(d.stops) WITH ORDINALITY a(stop, seq)
+				JOIN {stops} AS s ON s.stop_id = a.stop
+				WHERE d.uid = %(uid)s AND s.report_time <= %(trip_time)s
+				-- get uniques stops with the earliest report time and order by sequence
+				ORDER BY a.stop, s.report_time
+			) AS whatever ORDER BY seq
 		""".format(**conf['db']['tables']),
-		{ 'trip_time':trip_time, 'stop_ids':tuple(stop_ids) }
+		{ 'uid':uid, 'trip_time':trip_time }
 	)
-	# return a list of stop objects
+	# return a schedule-ordered list of stop objects
 	return [ Stop( stop_id, geom ) for stop_id, geom in c.fetchall() ]
 
 
