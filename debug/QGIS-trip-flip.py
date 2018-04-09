@@ -32,4 +32,4 @@ direction_stops_view.setSubsetString("direction_id = '"+str(direction_id)+"'")
 default_geom.setSubsetString("direction_id = '"+str(direction_id)+"'")
 
 # report on stuff
-print('showing trip_id:',trip_id)
+print('showing trip_id:',trip_id,'dir_id:',direction_id)

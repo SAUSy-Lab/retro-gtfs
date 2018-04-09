@@ -26,12 +26,13 @@ ORDER BY st.stop_id, st.trip_id, s.report_time;
 -- Gives sets of stops with geometry from the directions table
 
 DROP VIEW IF EXISTS direction_stops_view;
-﻿CREATE OR REPLACE VIEW direction_stops_view AS 
+CREATE OR REPLACE VIEW direction_stops_view AS 
 SELECT 
+	row_number() OVER () AS uid,
 	d.direction_id,
-	a.stop, 
-	a.seq,
+	a.stop AS stop_id, 
+	a.seq AS stop_sequence,
 	s.the_geom,
-	row_number() OVER () AS uid
+	d.report_time
 FROM :directions_table AS d, unnest(d.stops) WITH ORDINALITY a(stop, seq)
 JOIN :stops_table AS s ON s.stop_id = a.stop;
