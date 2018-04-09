@@ -56,7 +56,7 @@ class match(object):
 	@property
 	def is_useable(self):
 		"""Is this match good enough actually to be used?"""
-		return self.confidence > 0.1
+		return self.confidence > conf['min_OSRM_match_quality']
 
 
 	def query_OSRM(self):
@@ -135,7 +135,7 @@ class match(object):
 			print '\tdefault route used for direction',self.trip.direction_id
 		elif self.default_route_used and self.confidence == 0:
 			print '\tdefault route not found for',self.trip.direction_id
-		elif not self.default_route_used and self.confidence > 0.1:
+		elif not self.default_route_used and self.confidence > conf['min_OSRM_match_quality']:
 			print '\tOSRM match found with',round(self.confidence,3),'confidence'
 		else:
 			print '\tmatching failed for trip',self.trip.trip_id

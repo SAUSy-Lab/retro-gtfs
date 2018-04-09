@@ -35,6 +35,7 @@ conf = {
 		'url':'http://localhost:5002',
 		'timeout':10 # seconds
 	},
+	'min_OSRM_match_quality':0.3,
 	# function for projecting from lat-lon for shapely
 	# http://toblerity.org/shapely/manual.html#other-transformations
 	# http://all-geo.org/volcan01010/2012/11/change-coordinates-with-pyproj/
