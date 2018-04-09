@@ -1,0 +1,3 @@
+## Debugging scripts
+
+These files are intended for troubleshooting. `route-quality-measure.sql` gives aggregate statistics about the quality of matches at the level of routes. `trip-views.sql` creates views which basically add geometry to the directions and stop_times tables. This is intended for viewing all the attributes of individual trips e.g. in QGIS. To that end, `QGIS-trip-flip.py` is provided to allow a qgis project to display all the attributes of a given trip and to flip between trips quickly. You'll need a QGIS project set up with the various gemetry fields rendered in layers named as indicated in the script.
