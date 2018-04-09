@@ -128,6 +128,8 @@ class Trip(object):
 		)
 		# and begin matching
 		self.map_match_trip()
+		if len(self.vehicles) == 0:
+			return db.ignore_trip(self.trip_id,'too many vehicles removed during measurement')
 		self.interpolate_stop_times()
 
 

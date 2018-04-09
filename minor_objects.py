@@ -42,24 +42,10 @@ class Stop(object):
 		# set now
 		self.id = stop_id
 		self.geom = loadWKB( projected_geom_hex, hex=True )
-		# set later
-		self.distance_from_route = None
-
-	@property
-	def on_route(self):
-		"""Is this stop on the route?"""
-		if self.distance_from_route is not None:
-			return self.distance_from_route <= conf['stop_dist']
-		else:
-			return False
 
 	def set_measure(self,measure_in_meters):
 		assert measure_in_meters >= 0
 		self.measure = measure_in_meters
-
-	def set_distance(self,distance_in_meters):
-		assert distance_in_meters >= 0
-		self.distance_from_route = distance_in_meters	
 
 
 
@@ -85,12 +71,4 @@ class TimePoint(object):
 		self.arrival_time = epoch_time
 		self.departure_time = epoch_time
 	
-
-
-
-
-
-
-
-
 

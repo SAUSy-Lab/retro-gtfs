@@ -135,7 +135,7 @@ class match(object):
 			print '\tdefault route used for direction',self.trip.direction_id
 		elif self.default_route_used and self.confidence == 0:
 			print '\tdefault route not found for',self.trip.direction_id
-		elif not self.default_route_used and self.confidence > 0.2:
+		elif not self.default_route_used and self.confidence > 0.1:
 			print '\tOSRM match found with',round(self.confidence,3),'confidence'
 		else:
 			print '\tmatching failed for trip',self.trip.trip_id
@@ -268,6 +268,32 @@ class match(object):
 			if not skip_this_timepoint:
 				# we didn't have anything like that in the final set yet
 				final_timepoints.append( pt )
+		# add terminal stops if they are anywhere near the GPS data
+		# but not used yet
+		if not self.default_route_used:
+			first_stop = self.trip.stops[0]
+			last_stop = self.trip.stops[-1]
+			if not first_stop in [ t.stop for t in potential_timepoints ]:
+				# if the first stop is within 250 meters
+				dist = self.geometry.distance(first_stop.geom)
+				if dist < 250:
+					potential_timepoints.append( TimePoint(
+						first_stop,
+						0 - dist, # measure off the front of the route (assumption)
+						dist
+					) )
+			if not last_stop in [ t.stop for t in potential_timepoints ]:
+				# if the last stop is within 250 meters
+				dist = self.geometry.distance(last_stop.geom)
+				if dist < 250:
+					potential_timepoints.append( TimePoint(
+						last_stop,
+						self.trip.vehicles[-1].measure + dist, # measure off the back
+						dist
+					) )
+		# for default geometries, remove stops that are nowhere near the actual 
+		# GPS data
+		# TODO 
 		# sort by measure ascending
 		final_timepoints = sorted(final_timepoints,key=lambda timepoint: timepoint.measure)
 		return final_timepoints
