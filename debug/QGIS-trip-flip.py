@@ -19,7 +19,6 @@ trip_id,whatever = QInputDialog.getText(None, "Input Requested", "Trip_id")
 # subset trips table
 clean_geom.setSubsetString("trip_id = '"+str(trip_id)+"'")
 match_geom.setSubsetString("trip_id = '"+str(trip_id)+"'")
-orig_geom.setSubsetString("trip_id = '"+str(trip_id)+"'")
 
 stop_times_view.setSubsetString("trip_id = '"+str(trip_id)+"'")
 
