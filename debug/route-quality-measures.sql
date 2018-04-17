@@ -39,13 +39,13 @@ WITH stops_made AS (
 SELECT 
 	route_id,
 	COUNT(*) AS num_trips,
-	percentile_disc( array[0.25,0.5,0.75] ) WITHIN GROUP ( ORDER BY sm.num_stops ) AS stop_quartiles,
+	percentile_disc( array[0.25,0.5,0.75] ) WITHIN GROUP ( ORDER BY ROUND(sm.num_stops::numeric/sg.num_stops,2) ) AS stop_quartiles,
 	-- average percentage of stops made by trips
 	round( AVG( sm.num_stops / sg.num_stops::numeric )*100, 3 )AS avg_pct_stops,
 	-- average confidence of matched trips (including default = 1)
 	round( AVG(match_confidence)::numeric, 4 ) AS avg_confidence,
 	-- trip_id's of trips making less than half of stops
-	( array_agg(t.trip_id) FILTER (WHERE sm.num_stops < sg.num_stops/2) )[1:4] AS bad_trips
+	( array_agg(t.trip_id ORDER BY random()) FILTER (WHERE sm.num_stops < sg.num_stops/2) )[1:4] AS potentially_bad_trips
 FROM :trips_table AS t 
 JOIN stops_made AS sm ON t.trip_id = sm.trip_id
 JOIN stops_given AS sg ON t.trip_id = sg.trip_id
