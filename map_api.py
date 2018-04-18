@@ -273,11 +273,11 @@ class match(object):
 		if not self.default_route_used:
 			first_stop = self.trip.stops[0]
 			last_stop = self.trip.stops[-1]
-			if not first_stop in [ t.stop for t in potential_timepoints ]:
+			if not first_stop.id in [ t.stop.id for t in potential_timepoints ]:
 				# if the first stop is within 250 meters
 				dist = self.geometry.distance(first_stop.geom)
 				if dist < 250:
-					potential_timepoints.append( TimePoint(
+					final_timepoints.append( TimePoint(
 						first_stop,
 						0 - dist, # measure off the front of the route (assumption)
 						dist
@@ -286,14 +286,19 @@ class match(object):
 				# if the last stop is within 250 meters
 				dist = self.geometry.distance(last_stop.geom)
 				if dist < 250:
-					potential_timepoints.append( TimePoint(
+					final_timepoints.append( TimePoint(
 						last_stop,
 						self.trip.vehicles[-1].measure + dist, # measure off the back
 						dist
 					) )
-		# for default geometries, remove stops that are nowhere near the actual 
-		# GPS data
-		# TODO 
+		# for default geometries on the other hand, remove stops that are nowhere
+		# near the actual GPS data
+		else:
+			final_timepoints = [
+				t for t in final_timepoints if 
+				t.measure > self.trip.vehicles[0].measure - 250 and 
+				t.measure < self.trip.vehicles[-1].measure + 250
+			]
 		# sort by measure ascending
 		final_timepoints = sorted(final_timepoints,key=lambda timepoint: timepoint.measure)
 		return final_timepoints
