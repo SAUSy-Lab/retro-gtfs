@@ -11,16 +11,14 @@
 DROP VIEW IF EXISTS stop_times_view;
 CREATE OR REPLACE VIEW stop_times_view AS 
 SELECT 
-	DISTINCT ON (st.trip_id, st.stop_id) st.stop_id,
+	st.stop_uid,
 	st.trip_id,
 	st.stop_sequence,
 	st.etime,
 	s.the_geom
 FROM :stop_times_table AS st
 JOIN :stops_table AS s 
-	ON s.stop_id = st.stop_id AND
-	s.report_time <= st.etime
-ORDER BY st.stop_id, st.trip_id, s.report_time;
+	ON s.uid = st.stop_uid;
 
 
 -- Gives sets of stops with geometry from the directions table

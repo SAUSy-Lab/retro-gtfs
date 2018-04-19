@@ -225,26 +225,27 @@ def get_stops(direction_id, trip_time):
 	"""Get an ordered list of Stop objects from the schedule data."""
 	c = cursor()
 	# get the uid of the relevant direction entry
-	uid = get_direction_uid(direction_id,trip_time)
-	if not uid: return None
+	direction_uid = get_direction_uid(direction_id,trip_time)
+	if not direction_uid: return None
 	c.execute(	
 		"""
-			SELECT stop_id, the_geom FROM (
+			SELECT uid, the_geom FROM (
 				SELECT 
 					DISTINCT ON (a.stop) a.stop AS stop_id,
+					s.uid,
 					a.seq,
 					s.the_geom
 				FROM {directions} AS d, unnest(d.stops) WITH ORDINALITY a(stop, seq)
 				JOIN {stops} AS s ON s.stop_id = a.stop
-				WHERE d.uid = %(uid)s AND s.report_time <= %(trip_time)s
+				WHERE d.uid = %(direction_uid)s AND s.report_time <= %(trip_time)s
 				-- get uniques stops with the earliest report time and order by sequence
 				ORDER BY a.stop, s.report_time
 			) AS whatever ORDER BY seq
 		""".format(**conf['db']['tables']),
-		{ 'uid':uid, 'trip_time':trip_time }
+		{ 'direction_uid':direction_uid, 'trip_time':trip_time }
 	)
 	# return a schedule-ordered list of stop objects
-	return [ Stop( stop_id, geom ) for stop_id, geom in c.fetchall() ]
+	return [ Stop( stop_uid, geom ) for stop_uid, geom in c.fetchall() ]
 
 
 def get_route_geom(direction_id, trip_time):
@@ -314,7 +315,7 @@ def store_timepoints(trip_id,timepoints):
 		records.append( (trip_id,timepoint.stop_id,timepoint.arrival_time,seq) )
 		seq += 1
 	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
-	c.execute("INSERT INTO {stop_times} (trip_id, stop_id, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
+	c.execute("INSERT INTO {stop_times} (trip_id, stop_uid, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
 
 
 def get_timepoints(trip_id):

@@ -39,7 +39,8 @@ class Stop(object):
 	"""A physical transit stop."""
 
 	def __init__( self, stop_id, projected_geom_hex ):
-		# set now
+		# stop_id is the int UID of the stop, which can be associated with the 
+		# given stop_id through the stops table
 		self.id = stop_id
 		self.geom = loadWKB( projected_geom_hex, hex=True )
 

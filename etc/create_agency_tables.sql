@@ -83,7 +83,7 @@ CREATE INDEX ON :trips_table (trip_id);
 DROP TABLE IF EXISTS :stop_times_table;
 CREATE TABLE :stop_times_table (
 	trip_id integer,
-	stop_id varchar,
+	stop_uid integer,
 	stop_sequence integer,
 	etime double precision, -- non-localized epoch time in seconds
 	fake_stop_id varchar -- allows for repeated visits of the same stop

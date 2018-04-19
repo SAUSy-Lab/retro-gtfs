@@ -16,6 +16,7 @@
 \set stop_times_table  jv_stop_times
 -- timezone offset
 \set local_tz          'America/Toronto'
+\set tzoffset          -4
 -- where to save the output
 \set outdir            '/home/nate/retro-gtfs/output/jv/'
 -- stop configuration past here... just setting output locations from 
@@ -46,15 +47,13 @@ COPY(
 
 -- we may need to fudge some stop ID's in case any happen to be repeated 
 -- for a trip
--- TODO add an IF NOT EXISTS for version 9.6
---ALTER TABLE :stop_times_table ADD COLUMN fake_stop_id varchar;
 WITH sub AS (
 	SELECT 
 		trip_id,
 		stop_sequence,
-		stop_id  || repeat(
+		stop_uid  || repeat(
 			'_'::text,
-			(row_number() OVER (PARTITION BY trip_id, stop_id ORDER BY etime ASC))::int - 1
+			(row_number() OVER (PARTITION BY trip_id, stop_uid ORDER BY etime ASC))::int - 1
 		) AS fake_id
 	FROM :stop_times_table
 	ORDER BY trip_id,stop_sequence ASC
@@ -67,15 +66,14 @@ WHERE st.trip_id = sub.trip_id AND st.stop_sequence = sub.stop_sequence;
 -- make stops.txt
 COPY (
 	SELECT
-		fake_stop_id AS stop_id,
-		stop_code::varchar,
-		stop_name,
-		lat AS stop_lat,
-		lon AS stop_lon
-	FROM 
-		(SELECT DISTINCT fake_stop_id FROM :stop_times_table) AS f JOIN
-		:stops_table AS s
-		ON btrim(f.fake_stop_id,'_') = s.stop_id
+		DISTINCT
+		st.fake_stop_id AS stop_id,
+		s.stop_code::varchar,
+		s.stop_name,
+		s.lat AS stop_lat,
+		s.lon AS stop_lon
+	FROM :stop_times_table AS st JOIN :stops_table AS s 
+		ON s.uid = st.stop_uid
 ) TO :'stops' CSV HEADER;
 
 
