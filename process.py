@@ -9,7 +9,7 @@ from trip import Trip
 import db
 
 # let mode be one of ('single','range?')
-mode = raw_input('Processing mode (single, range, or route) --> ')
+mode = raw_input('Processing mode (single, all, or route) --> ')
 
 def process_trip(valid_trip_id):
 	"""worker process called when using multiprocessing"""
@@ -34,11 +34,9 @@ if mode in ['single','s']:
 		trip_id = raw_input('trip_id to process --> ')
 
 # 'range' mode does all valid ids in the given range
-elif mode == 'range':
-	id_range = raw_input('trip_id range as start:end --> ')
-	id_range = id_range.split(':')
-	# get a list of block id's in the range
-	trip_ids = db.get_trip_ids_by_range(id_range[0],id_range[1])
+elif mode in ['all','a']:
+	# get a list of all trip id's in the range
+	trip_ids = db.get_trip_ids_by_range(-float('inf'),float('inf'))
 	print len(trip_ids),'trips in that range'
 	# how many parallel processes to use?
 	max_procs = int(raw_input('max processes --> '))
@@ -56,7 +54,7 @@ elif mode == 'route':
 	max_procs = int(raw_input('max processes --> '))
 	# create a pool of workers and pass them the data
 	p = mp.Pool(max_procs)
-	p.map(process_trip,trip_ids,chunksize=1)
+	p.map(process_trip,trip_ids,chunksize=3)
 	print 'COMPLETED!'
 
 else:
