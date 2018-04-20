@@ -15,7 +15,6 @@
 \set trips_table       jv_trips
 \set stop_times_table  jv_stop_times
 -- timezone offset
-\set local_tz          'America/Toronto'
 \set tzoffset          -4
 -- where to save the output
 \set outdir            '/home/nate/retro-gtfs/output/jv/'
@@ -108,9 +107,23 @@ COPY (
 COPY (
 	SELECT 
 		t.trip_id,
-		-- TODO note the timezones in the time calculations
-		(to_timestamp(round(etime)) at time zone :'local_tz')::time AS arrival_time,
-		(to_timestamp(round(etime)) at time zone :'local_tz')::time AS departure_time,
+		-- this elaborate formatting is necessary to allow times to be based on 
+		-- the service day, meaning that they can extend beyond midnight
+		-- the service_id is essentially the local Nth day since the epoch
+		(
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int / 3600, 'fm00' ) 
+			||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) 
+			||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 60, 'fm00' )
+		) AS arrival_time,
+		(
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int / 3600, 'fm00' ) 
+			||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) 
+			||':'||
+			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 60, 'fm00' )
+		) AS departure_time,
 		stop_sequence,
 		fake_stop_id AS stop_id
 	FROM :stop_times_table AS st JOIN :trips_table AS t ON st.trip_id = t.trip_id
