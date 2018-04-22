@@ -95,7 +95,7 @@ class Trip(object):
 			self.direction_id,
 			self.vehicle_id,
 			times,
-			self.get_geom()
+			dumpWKB( self.get_geom(), hex=True )
 		)
 
 
