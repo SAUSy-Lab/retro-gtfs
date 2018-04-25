@@ -271,26 +271,18 @@ class match(object):
 		# add terminal stops if they are anywhere near the GPS data
 		# but not used yet
 		if not self.default_route_used:
-			first_stop = self.trip.stops[0]
-			last_stop = self.trip.stops[-1]
-			if not first_stop.id in [ t.stop.id for t in potential_timepoints ]:
-				# if the first stop is within 250 meters
-				dist = self.geometry.distance(first_stop.geom)
-				if dist < 500:
-					final_timepoints.append( TimePoint(
-						first_stop,
-						0 - dist, # measure off the front of the route (assumption)
-						dist
-					) )
-			if not last_stop in [ t.stop for t in potential_timepoints ]:
-				# if the last stop is within 250 meters
-				dist = self.geometry.distance(last_stop.geom)
-				if dist < 500:
-					final_timepoints.append( TimePoint(
-						last_stop,
-						self.trip.vehicles[-1].measure + dist, # measure off the back
-						dist
-					) )
+			# for first and last stops
+			for terminal_stop in [self.trip.stops[0],self.trip.stops[-1]]:
+				if not terminal_stop.id in [ t.stop.id for t in potential_timepoints ]:
+					# if the terminal stop is less than 500m away from the route
+					dist = self.geometry.distance(terminal_stop.geom)
+					if dist < 500:
+						m = self.geometry.project(terminal_stop.geom)
+						final_timepoints.append( TimePoint(
+							terminal_stop,
+							m-dist if m < self.geometry.length/2 else m+dist,
+							dist
+						) )
 		# for default geometries on the other hand, remove stops that are nowhere
 		# near the actual GPS data
 		else:
