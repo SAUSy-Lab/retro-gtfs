@@ -17,10 +17,10 @@ WITH stops_made AS (
 	SELECT 
 		t.trip_id,
 		CASE 
-			WHEN array_agg(stop_id) = ARRAY[NULL::varchar] THEN '{}'
-			ELSE array_agg(stop_id ORDER BY stop_sequence) 
+			WHEN array_agg(stop_uid) = ARRAY[NULL::integer] THEN '{}'
+			ELSE array_agg(stop_uid ORDER BY stop_sequence) 
 		END AS stops,
-		COUNT(stop_id) AS num_stops 
+		COUNT(stop_uid) AS num_stops 
 	FROM :trips_table AS t 
 	LEFT JOIN :stop_times_table AS st ON t.trip_id = st.trip_id
 	GROUP BY t.trip_id
