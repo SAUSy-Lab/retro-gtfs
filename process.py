@@ -46,7 +46,7 @@ elif mode in ['all','a']:
 	print 'COMPLETED!'
 
 # process only a certain route, then a subset of that route's trips
-elif mode == 'route':
+elif mode in ['route','r']:
 	route_id = raw_input('route_id --> ')
 	trip_ids = db.get_trip_ids_by_route(route_id)
 	print len(trip_ids),'trips on that route'
