@@ -1,4 +1,7 @@
-import requests, json, db
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+import json, db
 from conf import conf
 from numpy import mean
 from shapely.geometry import MultiLineString, asShape
@@ -56,11 +59,11 @@ class match(object):
 	@property
 	def is_useable(self):
 		"""Is this match good enough actually to be used?"""
-		return self.confidence > conf['min_OSRM_match_quality']
+		return self.confidence >= conf['min_OSRM_match_quality']
 
 
 	def query_OSRM(self):
-		"""Construct the request and send it to OSRM"""
+		"""Construct the request and send it to OSRM, retrying if necessary."""
 		# structure it as API requires
 		coords = ';'.join( [ str(v.lon)+','+str(v.lat) for v in self.trip.vehicles ] )
 		radii = ';'.join( [ str(self.error_radius) ] * len(self.trip.vehicles) )
@@ -75,8 +78,12 @@ class match(object):
 			'tidy':'true',
 			'generate_hints':'false'
 		}
+		# open a connection, configured to retry in case of errors
+		session = requests.Session()
+		retries = Retry(total=5, backoff_factor=1 )
+		session.mount('http://', HTTPAdapter(max_retries=retries))
 		# make the request 
-		raw_response = requests.get(
+		raw_response = session.get(
 			conf['OSRMserver']['url']+'/match/v1/transit/'+coords,
 			params=options,
 			timeout=conf['OSRMserver']['timeout']
