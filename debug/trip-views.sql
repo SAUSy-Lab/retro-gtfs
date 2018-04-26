@@ -1,9 +1,9 @@
 /* DB views for viewing and debugging trip-level data e.g. in QGIS */
 
 -- set your table names here
-\set stops_table       jv_stops
-\set stop_times_table  jv_stop_times
-\set directions_table  jv_directions
+\set stops_table       prefix_stops
+\set stop_times_table  prefix_stop_times
+\set directions_table  prefix_directions
 
 
 -- Adds geometry to stop_times table
@@ -15,6 +15,9 @@ SELECT
 	st.trip_id,
 	st.stop_sequence,
 	st.etime,
+	s.stop_name,
+	s.stop_code,
+	s.report_time,
 	s.the_geom
 FROM :stop_times_table AS st
 JOIN :stops_table AS s 
