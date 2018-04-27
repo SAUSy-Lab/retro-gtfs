@@ -30,7 +30,7 @@ def get_new_vehicles():
 	global next_trip_id
 	global next_bid
 	global last_update
-	# time the request was sent
+	# UNIX time the request was sent
 	request_time = time.time()
 	try: 
 		response = requests.get(
@@ -42,10 +42,10 @@ def get_new_vehicles():
 	except:
 		print 'connection problem at',time.strftime("%b %d %Y %H:%M:%S")
 		return
-	# time the response was received
+	# UNIX time the response was received
 	response_time = time.time()
-	# estimated time the server generated it's report
-	# halfway between send and reply
+	# estimated UNIX time the server generated it's report
+	# (halfway between send and reply times)
 	server_time = (request_time + response_time) / 2
 	# list of trips to send for processing
 	ending_trips = []

@@ -60,15 +60,20 @@ CREATE INDEX ON :directions_table (direction_id);
 DROP TABLE IF EXISTS :trips_table;
 CREATE TABLE :trips_table (
 	trip_id integer PRIMARY KEY,
-	orig_geom geometry( LINESTRING, :EPSG ),	-- geometry of all points
-	times double precision[], -- sequential report_times, corresponding to points on orig_geom
+	-- linestring geometry with a point corresponding to each reported location
+	-- correspends to "times", below
+	orig_geom geometry( LINESTRING, :EPSG ),	
+	-- sequential vehicle report times, corresponding to points on orig_geom
+	-- times are in UNIX epoch
+	times double precision[],
 	route_id varchar,
 	direction_id varchar,
 	service_id smallint,
 	vehicle_id varchar,
 	block_id integer,
 	match_confidence real,
-	ignore boolean DEFAULT TRUE,	-- this trip has not been processed or has been unsucessfully
+	-- this trip has not been processed or has been processed unsucessfully
+	ignore boolean DEFAULT TRUE,
 	-- debugging fields
 	match_geom geometry( MULTILINESTRING, :EPSG ), -- map-matched route geometry
 	clean_geom geometry( LINESTRING, :EPSG ), -- geometry of points used in map matching
