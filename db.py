@@ -488,7 +488,7 @@ def get_trip_ids_by_range(min_id,max_id):
 			SELECT trip_id 
 			FROM {trips}
 			WHERE trip_id BETWEEN %(min)s AND %(max)s 
-			ORDER BY trip_id ASC
+			ORDER BY trip_id ASC;
 		""".format(**conf['db']['tables']),
 		{
 			'min':min_id,
@@ -506,11 +506,25 @@ def get_trip_ids_by_route(route_id):
 			SELECT trip_id 
 			FROM {trips}
 			WHERE route_id = %(route_id)s 
-			ORDER BY trip_id ASC
+			ORDER BY trip_id ASC;
 		""".format(**conf['db']['tables']),
 		{
 			'route_id':route_id
 		}
+	)
+	return [ result for (result,) in c.fetchall() ]
+
+
+def get_trip_ids_unfinished():
+	""""""
+	c = cursor()
+	c.execute(
+		"""
+			SELECT trip_id 
+			FROM {trips} 
+			WHERE service_id IS NULL and problem = ''
+			ORDER BY trip_id ASC;
+		""".format(**conf['db']['tables'])
 	)
 	return [ result for (result,) in c.fetchall() ]
 

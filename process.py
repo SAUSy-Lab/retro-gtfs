@@ -10,7 +10,7 @@ import db
 from random import shuffle
 
 # let mode be one of ('single','range?')
-mode = raw_input('Processing mode (single, all, or route) --> ')
+mode = raw_input('Processing mode (single, all, route, or unfinished) --> ')
 
 def process_trip(valid_trip_id):
 	"""worker process called when using multiprocessing"""
@@ -48,10 +48,14 @@ elif mode in ['all','a']:
 	# get a list of all trip id's in the range
 	trip_ids = db.get_trip_ids_by_range(-float('inf'),float('inf'))
 	process_trips(trip_ids)
-# process only a certain route, then a subset of that route's trips
+# process only a certain route
 elif mode in ['route','r']:
 	route_id = raw_input('route_id --> ')
 	trip_ids = db.get_trip_ids_by_route(route_id)
+	process_trips(trip_ids)
+# process only trips that haven't been processed sucessfully yet
+elif mode in ['unfinished','u']:
+	trip_ids = db.get_trip_ids_unfinished()
 	process_trips(trip_ids)
 else:
 	print 'Invalid mode given.' 
