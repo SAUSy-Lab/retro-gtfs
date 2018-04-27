@@ -7,6 +7,7 @@ import multiprocessing as mp
 from time import sleep
 from trip import Trip
 import db
+from random import shuffle
 
 # let mode be one of ('single','range?')
 mode = raw_input('Processing mode (single, all, or route) --> ')
@@ -17,6 +18,16 @@ def process_trip(valid_trip_id):
 	db.reconnect()
 	t = Trip.fromDB(valid_trip_id)
 	t.process()
+
+def process_trips(trip_ids):
+	shuffle(trip_ids)
+	print len(trip_ids),'trips in that range'
+	# how many parallel processes to use?
+	max_procs = int(raw_input('max processes --> '))
+	# create a pool of workers and pass them the data
+	p = mp.Pool(max_procs)
+	p.map(process_trip,trip_ids,chunksize=3)
+	print 'COMPLETED!'
 
 # single mode enters one trip at a time and stops when 
 # a non-integer is entered
@@ -32,37 +43,16 @@ if mode in ['single','s']:
 			print 'no such trip'
 		# ask for another trip and continue
 		trip_id = raw_input('trip_id to process --> ')
-
 # 'range' mode does all valid ids in the given range
 elif mode in ['all','a']:
 	# get a list of all trip id's in the range
 	trip_ids = db.get_trip_ids_by_range(-float('inf'),float('inf'))
-	print len(trip_ids),'trips in that range'
-	# how many parallel processes to use?
-	max_procs = int(raw_input('max processes --> '))
-	# create a pool of workers and pass them the data
-	p = mp.Pool(max_procs)
-	p.map(process_trip,trip_ids,chunksize=1)
-	print 'COMPLETED!'
-
+	process_trips(trip_ids)
 # process only a certain route, then a subset of that route's trips
 elif mode in ['route','r']:
 	route_id = raw_input('route_id --> ')
 	trip_ids = db.get_trip_ids_by_route(route_id)
-	print len(trip_ids),'trips on that route'
-	# how many parallel processes to use?
-	max_procs = int(raw_input('max processes --> '))
-	# create a pool of workers and pass them the data
-	p = mp.Pool(max_procs)
-	p.map(process_trip,trip_ids,chunksize=3)
-	print 'COMPLETED!'
-
+	process_trips(trip_ids)
 else:
-	print 'invalid entry mode given' 
-
-
-
-
-
-
+	print 'Invalid mode given.' 
 
