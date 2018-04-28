@@ -45,8 +45,10 @@ conf = {
 		 pyproj.Proj('+init=EPSG:'+str(PROJECT_EPSG))
 	),
 	'localEPSG':PROJECT_EPSG,
-	# timezone is given as the hours offset from Greenwich mean time
-	'timezone':-4,
+	# https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+	# This must be an unabreviated timezone name to allow postgresql to account 
+	# for daylight savings time.
+	'timezone': 'America/Toronto',
 	# distance threshold for stop matching in meters; stops more than this far 
 	# away from the matched route will not be included
 	'stop_dist':30,

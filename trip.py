@@ -193,15 +193,6 @@ class Trip(object):
 		if len(self.timepoints) > 1:
 			# store the stop times
 			db.store_timepoints(self.trip_id,self.timepoints)
-			# Now set the service_id, which is the (local) DAY equivalent of 
-			# the unix epoch, which is centered on Greenwich.
-			# (The service_id is distinct to a day in the local timezone)
-			# First, shift the second_based epoch to local time
-			tlocal = self.timepoints[0].arrival_time + conf['timezone']*3600
-			# then find the "epoch day"
-			service_id = math.floor( tlocal / (24*3600) )
-			# and store it in the DB
-			db.set_service_id(self.trip_id,service_id)
 		else:
 			db.ignore_trip(self.trip_id,'one or fewer timepoints')
 		return

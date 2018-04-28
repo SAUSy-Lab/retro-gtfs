@@ -10,14 +10,14 @@
 */
 
 -- set your table names
-\set stops_table       jv_stops
-\set directions_table  jv_directions
-\set trips_table       jv_trips
-\set stop_times_table  jv_stop_times
--- timezone offset
-\set tzoffset          -4
+\set stops_table       ttc_stops
+\set directions_table  ttc_directions
+\set trips_table       ttc_trips
+\set stop_times_table  ttc_stop_times
+-- timezone
+\set tz                'America/Toronto'
 -- where to save the output
-\set outdir            '/home/nate/retro-gtfs/output/jv/'
+\set outdir            '/home/nate/retro-gtfs/output/scarbs/'
 -- stop configuration past here... just setting output locations from 
 -- the above because concatenation is complicated
 \set filename          'calendar_dates.txt'
@@ -33,19 +33,22 @@
 \set filename          'shapes.txt'
 \set shapes            :outdir:filename
 
--- make calendar_dates.txt
-COPY(
-	SELECT
-		service_id,
-		to_char(TIMESTAMP 'EPOCH' + (service_id * INTERVAL '1 day'),'YYYYMMDD') AS date,
-		1 AS exception_type
-	FROM (SELECT DISTINCT service_id FROM :trips_table WHERE NOT ignore) AS s
-	ORDER BY service_id ASC
-) TO :'calendar_dates' CSV HEADER;
+
+-- set the service_id of trips based on the time of their first stop
+-- service_id is the number of days since the local epoch to ensure
+-- unique values per day. Reset first. 
+\echo 'UPDATING service_ids'
+UPDATE :trips_table SET service_id = NULL WHERE service_id IS NOT NULL;
+
+UPDATE :trips_table  AS t SET service_id = 
+	( to_timestamp(st.etime) AT TIME ZONE :'tz' )::date - '1970-01-01'::date
+FROM :stop_times_table AS st 
+WHERE t.trip_id = st.trip_id AND st.stop_sequence = 1;
 
 
 -- we may need to fudge some stop ID's in case any happen to be repeated 
 -- for a trip
+\echo 'Fudging some stop_ids'
 WITH sub AS (
 	SELECT 
 		trip_id,
@@ -62,7 +65,21 @@ FROM sub
 WHERE st.trip_id = sub.trip_id AND st.stop_sequence = sub.stop_sequence;
 
 
+-- make calendar_dates.txt
+\echo 'Exporting calendar.txt'
+COPY(
+	SELECT DISTINCT 
+		service_id,
+		to_char(TIMESTAMP 'EPOCH' + (service_id * INTERVAL '1 day'),'YYYYMMDD') AS date,
+		1 AS exception_type
+	FROM :trips_table 
+	WHERE NOT ignore
+	ORDER BY service_id ASC
+) TO :'calendar_dates' CSV HEADER;
+
+
 -- make stops.txt
+\echo 'Exporting stops.txt'
 COPY (
 	SELECT
 		DISTINCT
@@ -76,7 +93,7 @@ COPY (
 ) TO :'stops' CSV HEADER;
 
 
--- make routes.txt
+\echo 'Exporting routes.txt'
 COPY (
 	SELECT 
 		DISTINCT
@@ -90,7 +107,7 @@ COPY (
 ) TO :'routes' CSV HEADER;
 
 
--- make trips.txt
+\echo 'Exporting trips.txt'
 COPY (
 	SELECT
 		t.route_id::varchar,
@@ -103,27 +120,23 @@ COPY (
 ) TO :'trips' CSV HEADER;
 
 
--- stop_times
+\echo 'Exporting stop_times.txt'
 COPY (
 	SELECT 
-		t.trip_id,
+		t.trip_id,		
 		-- this elaborate formatting is necessary to allow times to be based on 
 		-- the service day, meaning that they can extend beyond midnight
-		-- the service_id is essentially the local Nth day since the epoch
-		(
-			to_char( (etime+:tzoffset*3600-service_id*86400)::int / 3600, 'fm00' ) 
-			||':'||
-			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) 
-			||':'||
-			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 60, 'fm00' )
-		) AS arrival_time,
-		(
-			to_char( (etime+:tzoffset*3600-service_id*86400)::int / 3600, 'fm00' ) 
-			||':'||
-			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 3600 / 60, 'fm00' ) 
-			||':'||
-			to_char( (etime+:tzoffset*3600-service_id*86400)::int % 60, 'fm00' )
-		) AS departure_time,
+		-- the service_id is essentially the local Nth day since the epoch		
+		EXTRACT( EPOCH FROM 
+			-- local time of stop minus local service date
+			to_timestamp(round(st.etime)) AT TIME ZONE :'tz' -
+			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
+		) * INTERVAL '1 second' AS arrival_time,
+		EXTRACT( EPOCH FROM 
+			-- local time of stop minus local service date
+			to_timestamp(round(st.etime)) AT TIME ZONE :'tz' -
+			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
+		) * INTERVAL '1 second' AS departure_time,
 		stop_sequence,
 		fake_stop_id AS stop_id
 	FROM :stop_times_table AS st JOIN :trips_table AS t ON st.trip_id = t.trip_id
@@ -132,7 +145,7 @@ COPY (
 ) TO :'stop_times' CSV HEADER;
 
 
--- make shapes.txt
+\echo 'Exporting shapes.txt'
 -- this simply fills in the gaps in multilines
 COPY (
 	SELECT 
@@ -147,3 +160,4 @@ COPY (
 	FROM :trips_table
 	WHERE NOT ignore) AS sub
 ) TO :'shapes' CSV HEADER;
+

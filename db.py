@@ -332,20 +332,25 @@ def get_timepoints(trip_id):
 		
 
 
-def set_service_id(trip_id,service_id):
-	"""set the service_id of a trip"""
-	c = cursor()
-	c.execute(
-		"""
-			UPDATE {trips} 
-			SET service_id = %(service_id)s 
-			WHERE trip_id = %(trip_id)s;
-		""".format(**conf['db']['tables']),
-		{
-			'service_id':service_id,
-			'trip_id':trip_id
-		}
-	)
+#def set_service_id(trip_id,unix_time):
+#	"""Set the service_id of a trip from the UNIX time of the first stop.
+#		Service_id is equivalent to the number of days since the local epoch 
+#		(1970-01-01 local time)."""
+#	c = cursor()
+#	c.execute(
+#		"""
+#			UPDATE {trips} 
+#			SET service_id = 
+#				( to_timestamp( %(unix_time)s ) AT TIME ZONE %(timezone)s )::date
+#				- '1970-01-01'::date
+#			WHERE trip_id = %(trip_id)s;
+#		""".format(**conf['db']['tables']),
+#		{
+#			'trip_id':trip_id,
+#			'unix_time':round(unix_time),
+#			'timezone': conf['timezone']
+#		}
+#	)
 
 
 def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):

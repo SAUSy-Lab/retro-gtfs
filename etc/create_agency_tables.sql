@@ -68,6 +68,7 @@ CREATE TABLE :trips_table (
 	times double precision[],
 	route_id varchar,
 	direction_id varchar,
+	-- service_id is a local variant on the number of days since the UNIX epoch
 	service_id smallint,
 	vehicle_id varchar,
 	block_id integer,
