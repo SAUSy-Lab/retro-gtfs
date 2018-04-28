@@ -505,7 +505,7 @@ def get_trip_ids_unfinished():
 		"""
 			SELECT trip_id 
 			FROM {trips} 
-			WHERE service_id IS NULL and problem = ''
+			WHERE problem = '' AND ignore
 			ORDER BY trip_id ASC;
 		""".format(**conf['db']['tables'])
 	)
