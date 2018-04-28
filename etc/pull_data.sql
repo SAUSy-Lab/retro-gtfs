@@ -36,19 +36,28 @@
 
 -- set the service_id of trips based on the time of their first stop
 -- service_id is the number of days since the local epoch to ensure
--- unique values per day. Reset first. 
-\echo 'UPDATING service_ids'
-UPDATE :trips_table SET service_id = NULL WHERE service_id IS NOT NULL;
-
-UPDATE :trips_table  AS t SET service_id = 
-	( to_timestamp(st.etime) AT TIME ZONE :'tz' )::date - '1970-01-01'::date
-FROM :stop_times_table AS st 
-WHERE t.trip_id = st.trip_id AND st.stop_sequence = 1;
+-- unique values per day. This query is a bit complicated to speed up the 
+-- update by only modifying values that will change.
+\echo 'UPDATING service_ids as necessary'
+WITH sub AS (
+	SELECT 
+		t.trip_id, 
+		( to_timestamp(st.etime) AT TIME ZONE :'tz' )::date - '1970-01-01'::date AS service_id
+	FROM :trips_table AS t 
+	LEFT JOIN :stop_times_table AS st
+		ON t.trip_id = st.trip_id AND st.stop_sequence = 1
+)
+UPDATE :trips_table AS t SET service_id = sub.service_id
+FROM sub 
+WHERE 
+	t.trip_id = sub.trip_id AND 
+	-- only changed values
+	t.service_id != sub.service_id;
 
 
 -- we may need to fudge some stop ID's in case any happen to be repeated 
 -- for a trip
-\echo 'Fudging some stop_ids'
+\echo 'Fudging some stop_ids as necessary'
 WITH sub AS (
 	SELECT 
 		trip_id,
@@ -58,11 +67,14 @@ WITH sub AS (
 			(row_number() OVER (PARTITION BY trip_id, stop_uid ORDER BY etime ASC))::int - 1
 		) AS fake_id
 	FROM :stop_times_table
-	ORDER BY trip_id,stop_sequence ASC
 )
-UPDATE :stop_times_table AS st SET fake_stop_id = fake_id
+UPDATE :stop_times_table AS st SET fake_stop_id = sub.fake_id
 FROM sub 
-WHERE st.trip_id = sub.trip_id AND st.stop_sequence = sub.stop_sequence;
+WHERE 
+	st.trip_id = sub.trip_id AND 
+	st.stop_sequence = sub.stop_sequence AND
+	-- only changed values
+	st.fake_stop_id != sub.fake_id;
 
 
 -- make calendar_dates.txt
