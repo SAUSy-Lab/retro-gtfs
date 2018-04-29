@@ -102,8 +102,7 @@ def empty_tables():
 				match_confidence = NULL,
 				ignore = TRUE,
 				clean_geom = NULL,
-				problem = NULL,
-				active = NULL,
+				problem = '',
 				match_geom = NULL;
 		""".format(**conf['db']['tables'])
 	)

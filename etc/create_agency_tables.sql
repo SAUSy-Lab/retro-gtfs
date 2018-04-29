@@ -26,8 +26,7 @@ CREATE TABLE :stops_table (
 	lon numeric,
 	lat numeric,
 	the_geom geometry( POINT, :EPSG ),
-	report_time double precision, -- epoch time
-	active boolean DEFAULT TRUE -- debugging flag
+	report_time double precision -- epoch time
 );
 CREATE INDEX ON :stops_table (stop_id);
 
@@ -78,8 +77,7 @@ CREATE TABLE :trips_table (
 	-- debugging fields
 	match_geom geometry( MULTILINESTRING, :EPSG ), -- map-matched route geometry
 	clean_geom geometry( LINESTRING, :EPSG ), -- geometry of points used in map matching
-	problem varchar DEFAULT '', -- description of any problems that arise
-	active boolean DEFAULT TRUE -- debugging flag
+	problem varchar DEFAULT '' -- description of any problems that arise
 );
 CREATE INDEX ON :trips_table (trip_id);
 
