@@ -79,15 +79,18 @@ class match(object):
 			'generate_hints':'false'
 		}
 		# open a connection, configured to retry in case of errors
-		session = requests.Session()
-		retries = Retry(total=5, backoff_factor=1 )
-		session.mount('http://', HTTPAdapter(max_retries=retries))
-		# make the request 
-		raw_response = session.get(
-			conf['OSRMserver']['url']+'/match/v1/transit/'+coords,
-			params=options,
-			timeout=conf['OSRMserver']['timeout']
-		)
+		with requests.Session() as session:
+			retries = Retry( total=5, backoff_factor=1 )
+			session.mount( 'http://', HTTPAdapter(max_retries=retries) )
+			# make the request
+			try:
+				raw_response = session.get(
+					conf['OSRMserver']['url']+'/match/v1/transit/'+coords,
+					params=options,
+					timeout=conf['OSRMserver']['timeout']
+					)
+			except:
+				return db.ignore_trip(self.trip.trip_id,'connection issue')
 		# parse the result to a python object
 		self.OSRM_response = json.loads(raw_response.text)
 		# how confident should we be in this response?
