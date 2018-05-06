@@ -31,8 +31,11 @@ CREATE OR REPLACE VIEW direction_stops_view AS
 SELECT 
 	row_number() OVER () AS uid,
 	d.direction_id,
-	a.stop AS stop_id, 
+	a.stop AS stop_id,
 	a.seq AS stop_sequence,
+	s.uid AS stop_uid,
+	s.stop_code,
+	s.stop_name,
 	s.the_geom,
 	d.report_time
 FROM :directions_table AS d, unnest(d.stops) WITH ORDINALITY a(stop, seq)
