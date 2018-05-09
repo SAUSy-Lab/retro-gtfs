@@ -52,7 +52,7 @@ FROM sub
 WHERE 
 	t.trip_id = sub.trip_id AND 
 	-- only changed values
-	t.service_id != sub.service_id;
+	(t.service_id != sub.service_id OR t.service_id IS NULL);
 
 
 -- we may need to fudge some stop ID's in case any happen to be repeated 
