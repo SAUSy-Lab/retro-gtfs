@@ -42,7 +42,7 @@
 WITH sub AS (
 	SELECT 
 		t.trip_id, 
-		( to_timestamp(st.etime) AT TIME ZONE :'tz' )::date - '1970-01-01'::date AS service_id
+		( to_timestamp(st.etime) AT TIME ZONE :'tz' )::date - 'epoch'::date AS service_id
 	FROM :trips_table AS t 
 	LEFT JOIN :stop_times_table AS st
 		ON t.trip_id = st.trip_id AND st.stop_sequence = 1
