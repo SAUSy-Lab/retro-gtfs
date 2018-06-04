@@ -1,15 +1,20 @@
 /* DB views for viewing and debugging trip-level data e.g. in QGIS */
 
 -- set your table names here
-\set stops_table       prefix_stops
-\set stop_times_table  prefix_stop_times
-\set directions_table  prefix_directions
+\set prefix						'ttc_'
+
+\set stops_table				:prefix'stops'
+\set stop_times_table		:prefix'stop_times'
+\set directions_table		:prefix'directions'
+
+\set stop_times_view			:prefix'stop_times_view'
+\set direction_stops_view	:prefix'direction_stops_view'
 
 
 -- Adds geometry to stop_times table
 
-DROP VIEW IF EXISTS stop_times_view;
-CREATE OR REPLACE VIEW stop_times_view AS 
+DROP VIEW IF EXISTS :stop_times_view;
+CREATE OR REPLACE VIEW :stop_times_view AS 
 SELECT 
 	st.stop_uid,
 	st.trip_id,
@@ -26,8 +31,8 @@ JOIN :stops_table AS s
 
 -- Gives sets of stops with geometry from the directions table
 
-DROP VIEW IF EXISTS direction_stops_view;
-CREATE OR REPLACE VIEW direction_stops_view AS 
+DROP VIEW IF EXISTS :direction_stops_view;
+CREATE OR REPLACE VIEW :direction_stops_view AS 
 SELECT 
 	row_number() OVER () AS uid,
 	d.direction_id,
