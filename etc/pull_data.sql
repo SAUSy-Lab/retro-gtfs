@@ -9,29 +9,26 @@
 	Just as a note, this was tested on psql version 9.5
 */
 
--- set your table names
-\set stops_table       ttc_stops
-\set directions_table  ttc_directions
-\set trips_table       ttc_trips
-\set stop_times_table  ttc_stop_times
+-- set your table name prefix
+\set prefix					'ttc_'
+
+-- set the table names
+\set stops_table			:prefix'stops'
+\set directions_table	:prefix'directions'
+\set trips_table			:prefix'trips'
+\set stop_times_table	:prefix'stop_times'
 -- timezone
-\set tz                'America/Toronto'
+\set tz						'America/Toronto'
 -- where to save the output
-\set outdir            '/home/nate/retro-gtfs/output/scarbs/'
+\set outdir					'/home/nate/retro-gtfs/output/scarbs/'
 -- stop configuration past here... just setting output locations from 
 -- the above because concatenation is complicated
-\set filename          'calendar_dates.txt'
-\set calendar_dates    :outdir:filename
-\set filename          'stops.txt'
-\set stops             :outdir:filename
-\set filename          'routes.txt'
-\set routes            :outdir:filename
-\set filename          'trips.txt'
-\set trips             :outdir:filename
-\set filename          'stop_times.txt'
-\set stop_times        :outdir:filename
-\set filename          'shapes.txt'
-\set shapes            :outdir:filename
+\set calendar_dates		:outdir'calendar_dates.txt'
+\set stops					:outdir'stops.txt'
+\set routes					:outdir'routes.txt'
+\set trips					:outdir'trips.txt'
+\set stop_times			:outdir'stop_times.txt'
+\set shapes					:outdir'shapes.txt'
 
 
 -- set the service_id of trips based on the time of their first stop
