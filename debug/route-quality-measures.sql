@@ -6,9 +6,11 @@
 */
 
 -- set your table names here
-\set directions_table  prefix_directions
-\set trips_table       prefix_trips
-\set stop_times_table  prefix_stop_times
+\set prefix					ttc_
+
+\set directions_table	:prefix'directions'
+\set trips_table			:prefix'trips'
+\set stop_times_table	:prefix'stop_times'
 
 
 WITH stops_made AS (
