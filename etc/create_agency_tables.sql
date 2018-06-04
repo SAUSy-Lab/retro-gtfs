@@ -9,10 +9,12 @@
 -- this should be a meter based projection like UTM
 \set EPSG 26917
 -- set your table names here, and again in config.py
-\set stops_table       prefix_stops
-\set directions_table  prefix_directions
-\set trips_table       prefix_trips
-\set stop_times_table  prefix_stop_times
+\set prefix					ttc_
+
+\set stops_table			:prefix'stops'
+\set directions_table	:prefix'directions'
+\set trips_table			:prefix'trips'
+\set stop_times_table	:prefix'stop_times'
 
 /*
 	equivalent to GTFS stops table
