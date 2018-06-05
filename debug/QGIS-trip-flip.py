@@ -6,8 +6,8 @@ for layer in all_layers:
         clean_geom = layer
     elif layer.name() == 'trips.match_geom':
         match_geom = layer
-    elif layer.name() == 'direction_stops_view':
-        direction_stops_view = layer
+    elif layer.name() == 'trip_sched_stops':
+        trip_sched_stops = layer
     elif layer.name() == 'stop_times_view':
         stop_times_view = layer
     elif layer.name() == 'directions.route_geom':
@@ -21,15 +21,8 @@ clean_geom.setSubsetString("trip_id = '"+str(trip_id)+"'")
 match_geom.setSubsetString("trip_id = '"+str(trip_id)+"'")
 
 stop_times_view.setSubsetString("trip_id = '"+str(trip_id)+"'")
+trip_sched_stops.setSubsetString("trip_id = '"+str(trip_id)+"'")
 
-# get the direction_id from the trips attribute table 
-# there should only be one record, but this is an iterator
-for record in clean_geom.getFeatures():
-    direction_id = record['direction_id']
-
-# subset the directions table
-direction_stops_view.setSubsetString("direction_id = '"+str(direction_id)+"'")
-default_geom.setSubsetString("direction_id = '"+str(direction_id)+"'")
 
 # report on stuff
-print('showing trip_id:',trip_id,'dir_id:',direction_id)
+print('showing trip_id:',trip_id)
