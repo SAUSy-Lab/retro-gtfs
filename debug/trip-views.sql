@@ -8,7 +8,7 @@
 \set directions_table		:prefix'directions'
 
 \set stop_times_view			:prefix'stop_times_view'
-\set direction_stops_view	:prefix'direction_stops_view'
+\set trip_sched_stops_view	:prefix'trip_sched_stops'
 
 
 -- Adds geometry to stop_times table
@@ -29,19 +29,25 @@ JOIN :stops_table AS s
 	ON s.uid = st.stop_uid;
 
 
--- Gives sets of stops with geometry from the directions table
+-- Gives sets of stops with geometry from the schedule data
 
-DROP VIEW IF EXISTS :direction_stops_view;
-CREATE OR REPLACE VIEW :direction_stops_view AS 
-SELECT 
-	row_number() OVER () AS uid,
+DROP VIEW IF EXISTS :trip_sched_stops_view;
+CREATE OR REPLACE VIEW :trip_sched_stops_view AS 
+SELECT DISTINCT ON (t.trip_id, s.stop_id) 
+	t.trip_id,
+	s.stop_id,
 	d.direction_id,
-	a.stop AS stop_id,
-	a.seq AS stop_sequence,
+	s.the_geom,
 	s.uid AS stop_uid,
 	s.stop_code,
 	s.stop_name,
-	s.the_geom,
-	d.report_time
-FROM :directions_table AS d, unnest(d.stops) WITH ORDINALITY a(stop, seq)
-JOIN :stops_table AS s ON s.stop_id = a.stop;
+	d.report_time AS direction_report_time,
+	s.report_time AS stop_report_time
+FROM ttc_trips AS t
+JOIN ttc_directions AS d ON 
+	t.direction_id = d.direction_id AND
+	d.report_time <= t.times[array_upper(t.times,1)]
+JOIN ttc_stops AS s ON 
+	s.stop_id = ANY(d.stops) AND
+	s.report_time <= t.times[array_upper(t.times,1)]
+ORDER BY t.trip_id, s.stop_id, d.report_time, s.report_time ASC
