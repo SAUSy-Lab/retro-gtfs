@@ -41,12 +41,12 @@ WITH stops_made AS (
 SELECT 
 	route_id,
 	COUNT(*) AS num_trips,
-	percentile_disc( array[0.05,0.25,0.5,0.75,0.95] ) WITHIN GROUP ( ORDER BY ROUND(sm.num_stops::numeric/sg.num_stops,2) ) AS stop_quintiles,
+	percentile_disc( array[.05,.25,.5,.75,.95] ) WITHIN GROUP ( ORDER BY ROUND(sm.num_stops::numeric/sg.num_stops,2) ) AS stop_quintiles,
 	-- average confidence of matched trips (including default = 1)
 	round( AVG(match_confidence)::numeric, 4 ) AS avg_confidence,
 	-- trip_id's of trips making less than half of stops
 	( array_agg(t.trip_id ORDER BY random()) FILTER (WHERE sm.num_stops < sg.num_stops/2) )[1:3] AS too_few_stops,
-	-- trip_id's of trips making less than half of stops
+	-- trip_id's of trips making more stops than scheduled
 	( array_agg(t.trip_id ORDER BY random()) FILTER (WHERE sm.num_stops > sg.num_stops) )[1:3] AS too_many_stops
 FROM :trips_table AS t 
 JOIN stops_made AS sm ON t.trip_id = sm.trip_id
