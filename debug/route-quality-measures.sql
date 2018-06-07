@@ -51,7 +51,7 @@ SELECT
 FROM :trips_table AS t 
 JOIN stops_made AS sm ON t.trip_id = sm.trip_id
 JOIN stops_given AS sg ON t.trip_id = sg.trip_id
-WHERE t.problem NOT IN ('too short','too few vehicles')
+WHERE t.problem NOT IN ('too short','too few vehicles') OR t.problem IS NULL
 GROUP by route_id 
 ORDER BY num_trips DESC
 
