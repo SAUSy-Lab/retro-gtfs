@@ -3,7 +3,7 @@
 	should conform to the requirements of the GTFS specification:
 	https://developers.google.com/transit/gtfs/reference/
 	It uses psql variables to minimize the necessary editing, and so it 
-	shuld be run with psql. Be sure to change the variables just below to 
+	should be run with psql. Be sure to change the variables just below to 
 	match your own configuration.
 
 	Just as a note, this was tested on psql version 9.5
@@ -20,7 +20,7 @@
 -- timezone
 \set tz						'America/Toronto'
 -- where to save the output
-\set outdir					'/home/nate/retro-gtfs/output/scarbs/'
+\set outdir					'/home/nate/retro-gtfs/output/ttc/'
 -- stop configuration past here... just setting output locations from 
 -- the above because concatenation is complicated
 \set calendar_dates		:outdir'calendar_dates.txt'
