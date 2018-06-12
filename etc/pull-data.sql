@@ -70,8 +70,8 @@ FROM sub
 WHERE 
 	st.trip_id = sub.trip_id AND 
 	st.stop_sequence = sub.stop_sequence AND
-	-- only changed values
-	st.fake_stop_id != sub.fake_id;
+	-- only changed or null values
+	( st.fake_stop_id != sub.fake_id OR st.fake_stop_id IS NULL );
 
 
 -- make calendar_dates.txt
