@@ -49,7 +49,7 @@ CREATE TABLE :directions_table (
 	useforui boolean,
 	stops text[],
 	report_time double precision, -- epoch time
-	route_geom geometry( LINESTRING, :EPSG ), -- optional default route geometry
+	route_geom geometry( LINESTRING, :EPSG ) -- optional default route geometry
 );
 CREATE INDEX ON :directions_table (direction_id);
 
