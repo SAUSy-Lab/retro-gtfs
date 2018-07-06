@@ -16,3 +16,7 @@ conf-*.py
 # agency specific output
 output/*
 !output/agency/
+
+# QGIS maps
+debug/*.qgs*
+debug/*.qgd*
