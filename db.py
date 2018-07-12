@@ -479,6 +479,17 @@ def get_trip_ids_by_range(min_id,max_id):
 	)
 	return [ result for (result,) in c.fetchall() ]
 
+def get_all_trip_ids():
+	"""return a list of all trip ids in the database"""
+	c = cursor()
+	c.execute(
+		"""
+			SELECT DISTINCT trip_id 
+			FROM {trips}
+			ORDER BY trip_id ASC;
+		""".format(**conf['db']['tables'])		
+	)
+	return [ result for (result,) in c.fetchall() ]
 
 def get_trip_ids_by_route(route_id):
 	"""return a list of all trip ids operating a given route"""

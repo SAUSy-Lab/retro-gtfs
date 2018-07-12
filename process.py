@@ -46,7 +46,7 @@ if mode in ['single','s']:
 # 'range' mode does all valid ids in the given range
 elif mode in ['all','a']:
 	# get a list of all trip id's in the range
-	trip_ids = db.get_trip_ids_by_range(-float('inf'),float('inf'))
+	trip_ids = db.get_all_trip_ids()
 	process_trips(trip_ids)
 # process only a certain route
 elif mode in ['route','r']:

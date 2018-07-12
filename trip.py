@@ -1,7 +1,7 @@
 # documentation on the nextbus feed:
 # http://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf
 
-import re, db, math, random 
+import re, db, math, random , warnings
 import map_api
 from geom import cut
 from numpy import mean
@@ -10,6 +10,7 @@ from shapely.wkb import loads as loadWKB, dumps as dumpWKB
 from shapely.ops import transform as reproject
 from shapely.geometry import Point, asShape, LineString, MultiLineString
 from minor_objects import Vehicle
+import db
 
 class Trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -97,6 +98,31 @@ class Trip(object):
 			times,
 			dumpWKB( self.get_geom(), hex=True )
 		)
+        
+	def save_overwrite(self):
+		"""same as save but if there is a duplicate, store the new one if it is longer."""
+		c = db.cursor()
+		c.execute(
+            """
+			SELECT times
+			FROM {trips}
+			WHERE trip_id = %(trip_id)s
+		    """.format(**conf['db']['tables']), { 'trip_id':self.trip_id }
+                )
+		exist_times = c.fetchone()
+		if exist_times is None: self.save()
+		else:            
+			old_duration = max(exist_times[0]) - min(exist_times[0])
+			newtimes = [v.time for v in self.vehicles]
+			new_duration = max(newtimes) - min(newtimes)
+			warnings.warn("\n trip {id} has duplicate. new duration: {new} old duration: {old} \n".format(id=self.trip_id, old = old_duration, new = new_duration), stacklevel = 8)			
+			if old_duration > new_duration: 
+				return                
+			else:
+				c.execute("DELETE FROM {trips_table} where trip_id = '{id}'".format(
+                        trips_table=conf['db']['tables']['trips'], id = self.trip_id)
+                        )                
+				self.save()
 
 
 	def process(self):
@@ -137,7 +163,7 @@ class Trip(object):
 		"""Return a clean shapely geometry string using all vehicles
 			in the local projection. Equivalent to orig_geom field in 
 			the trips table."""
-		return LineString( [ v.geom for v in self.vehicles ] )
+		return LineString( [v.geom for v in self.vehicles ] )
 
 
 	def get_segment_speeds(self):
