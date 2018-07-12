@@ -17,7 +17,7 @@ conf = {
 			'host':'localhost',
 			'name':'db1', # database name
 			'user':'minhpham',
-			'password':'dogheo21',
+			'password':'123456',
 			'tables':{
 				# these are SQL-safe table names used directly in queries
 				# if you set up the tables with create_nb_tables.sql, you have likely changed the prefix
