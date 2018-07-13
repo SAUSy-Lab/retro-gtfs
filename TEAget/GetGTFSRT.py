@@ -40,7 +40,7 @@ def FetchVehiclePositions(timestamp, trips):
         return
     # response received, check if status is ok
     ResponseParse = Response.json()
-    if ResponseParse['header']['status'] != 'OK':
+    if (ResponseParse['header']['status'] != 'OK') or 'entity' not in ResponseParse.keys():
         print('problem with API call: ' + APICall)
         return
     # has the closest feed's timestamp changed? If not, skip
