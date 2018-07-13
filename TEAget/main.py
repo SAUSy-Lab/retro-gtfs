@@ -4,8 +4,8 @@ import time, WriteDB, GetGTFS, GetGTFSRT
 
 
 # start and end time to pull data
-start_time = '11/6/2017 00:00:00'
-end_time = '11/12/2017 12:59:59'
+start_time = '11/6/2017 12:50:00'
+end_time = '11/12/2017 23:59:59'
 
 def main():    
     global start_time, end_time
@@ -40,12 +40,12 @@ def main():
     print ("initiate tables in database")
     WriteDB.init_DB(reset = True)
     
-    # ----- store stop table ----------------------
-    print (" - write routes table to database ...")
-    GetGTFS.StoreStops(stops)
-    # -----stop directions table ---------------------
-    print (" - create and write directions to database ...")
-    GetGTFS.StoreDirections(trips, stop_times)
+#    # ----- store stop table ----------------------
+#    print (" - write routes table to database ...")
+#    GetGTFS.StoreStops(stops)
+#    # -----stop directions table ---------------------
+#    print (" - create and write directions to database ...")
+#    GetGTFS.StoreDirections(trips, stop_times)
     
     # ---- Get Vehicle Positions between start_time and end_time, this function also store to DB
     GetGTFSRT.GetAllVehiclePositions(start_time = start_time, end_time = end_time, trips = trips)

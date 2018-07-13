@@ -163,7 +163,7 @@ class Trip(object):
 		"""Return a clean shapely geometry string using all vehicles
 			in the local projection. Equivalent to orig_geom field in 
 			the trips table."""
-		return LineString( [v.geom for v in self.vehicles ] )
+		return LineString( [[v.geom.x, v.geom.y] for v in self.vehicles ] )
 
 
 	def get_segment_speeds(self):

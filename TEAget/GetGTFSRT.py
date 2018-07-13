@@ -3,7 +3,7 @@ sys.path.append("..") # Adds higher directory to python modules path.
 import requests, threading, trip, conf
 from datetime import datetime
 
-def GetAllVehiclePositions(start_time, end_time, trips, increment = 30):
+def GetAllVehiclePositions(start_time, end_time, trips, increment = 10):
     """ fetch all vehicle positions from start_time to end_time (POSIX)
     increment: increment (in seconds) to send timestamp to API"""
     # ------- initiate global variables --------
@@ -12,26 +12,16 @@ def GetAllVehiclePositions(start_time, end_time, trips, increment = 30):
     global fleet_lock; fleet_lock = threading.Lock() 	# prevent simulataneous editing
     global last_update_timestamp; last_update_timestamp = 0 # initiate latest update timestamp for feeds (to check if feeds are being generated)
     timestamp = start_time
-    timeskip = False;
     while timestamp < end_time:
         # send vehicle_positions api, update fleet, and store ending trips to DB
         FetchVehiclePositions(timestamp, trips)
         # increase timestamp 
         timestamp = timestamp + increment
-        
-        if timestamp - last_update_timestamp > 1800:
-            # if no feed in the last 30 minutes, reset fleet:
-            if not timeskip: print('\n'); fleet = {}; timeskip = True
-            sys.stdout.write('\r no feed has been generated, skipping through time ... {time}'.format(time = datetime.fromtimestamp(timestamp).strftime("%b %d %Y %H:%M:%S")))
-            sys.stdout.flush()
-
-        else:            
-            # print status
-            if timeskip: print('\n'); timeskip = False
-            sys.stdout.write('\r' + '{no_fleet} in fleet, {ended_trips}, at {time} '.format(
-                    no_fleet = len(fleet), ended_trips = ended_trips, time = datetime.fromtimestamp(timestamp).strftime("%b %d %Y %H:%M:%S"))
-                    )
-            sys.stdout.flush()
+        # print status
+        sys.stdout.write('\r' + '{no_fleet} in fleet, {ended_trips}, at {time} '.format(
+                no_fleet = len(fleet), ended_trips = ended_trips, time = datetime.fromtimestamp(timestamp).strftime("%b %d %Y %H:%M:%S"))
+                )
+        sys.stdout.flush()
 
 def FetchVehiclePositions(timestamp, trips):
     """send vehicle_positions api call at timestamp, update fleet, and store ending trips to DB"""
@@ -55,10 +45,11 @@ def FetchVehiclePositions(timestamp, trips):
         return
     # has the closest feed's timestamp changed? If not, skip
     global last_update_timestamp
-    if ResponseParse['header']['timestamp'] == last_update_timestamp:
+    timestamp = ResponseParse['header']['timestamp']
+    if timestamp == last_update_timestamp:
         return 
     else:
-        last_update_timestamp = ResponseParse['header']['timestamp'] 
+        last_update_timestamp = timestamp
     # ----- update fleet------
     ending_trips = []
     global ended_trips
@@ -68,14 +59,18 @@ def FetchVehiclePositions(timestamp, trips):
     with fleet_lock:
         # check if any trip ended, there can be 2 reasons:
         for vid in fleet.keys():
-            # if we haven't seen the vehicle for more than 3 minutes
+            # if we haven't seen the vehicle for more than 30 minutes
             # or if the tripId changed
-            if timestamp - fleet[vid].last_seen > 180:
+            if timestamp - int(fleet[vid].last_seen) > 1800:
                 ending_trips.append(fleet[vid]); del fleet[vid]
-                ended_trips['notseen'] = ended_trips['notseen'] + 1                
-            if not any((vehicle['vehicle']['id'] == vid and vehicle['trip']['tripId'] == str(fleet[vid].trip_id)) for vehicle in vehicles):
-                ending_trips.append(fleet[vid]); del fleet[vid]
-                ended_trips['changetrip'] = ended_trips['changetrip'] + 1
+                ended_trips['notseen'] = ended_trips['notseen'] + 1 
+                continue
+            if any(vehicle['vehicle']['id'] == vid for vehicle in vehicles):
+            # if any vehicle in vehicle_positions feed match vid:
+                if [v['trip']['tripId'] for v in vehicles if v['vehicle']['id'] == vid][0] != fleet[vid].trip_id:
+                    # if the trip ID for that vehicle changed:
+                    ending_trips.append(fleet[vid]); del fleet[vid]
+                    ended_trips['changetrip'] = ended_trips['changetrip'] + 1
                 
         for v in vehicles:
 			# get values from json list
@@ -87,17 +82,18 @@ def FetchVehiclePositions(timestamp, trips):
             rid = trips.route_id[trips.trip_id == tripId].values[0] # route id            
             did = trips.direction_id[trips.trip_id == tripId].values[0]  # direction id
             lon, lat = v['position']['longitude'], v['position']['latitude']
-			
+            v_timestamp = int(v['timestamp'])
+            
             if vid not in fleet: # add to fleet if we have not seen this vehicle
-                fleet[vid] = trip.Trip.new(trip_id = tripId, block_id = 0,direction_id = did, route_id = rid, vehicle_id = vid, last_seen = timestamp)			
-                fleet[vid].add_point(lon,lat,timestamp)				
+                fleet[vid] = trip.Trip.new(trip_id = tripId, block_id = 0,direction_id = did, route_id = rid, vehicle_id = vid, last_seen = v_timestamp)			
+                fleet[vid].add_point(lon,lat,v_timestamp)				
 				# done with this vehicle
                 continue
             else:
                 # we have a record for this vehicle, just add the new position
-                fleet[vid].add_point(lon,lat,timestamp)
+                fleet[vid].add_point(lon,lat,v_timestamp)
                 # then update the time and sequence
-                fleet[vid].last_seen = timestamp
+                fleet[vid].last_seen = v_timestamp
                 fleet[vid].seq += 1
     # release the fleet lock
     
