@@ -37,15 +37,15 @@ def main():
         # process vehicle positions in the day
         print(' - Processing recorded trips ...')
         recorded_trip_ids = db.get_all_trip_ids()
-        process.process_trips(trip_ids = recorded_trip_ids, max_procs = 4)
+        process.process_trips(trip_ids = recorded_trip_ids, max_procs = 64)
         
-#        # export retro GTFS
-#        print(' - exporting retro-GTFS ...')
-#        outdir =  os.getcwd() + '/output/' + str(Day)
-#        if os.path.exists(outdir):
-#            shutil.rmtree(outdir)
-#        os.mkdir(outdir)
-#        export.export(outdir)
+        # export retro GTFS
+        print(' - exporting retro-GTFS ...')
+        outdir =  os.getcwd() + '/output/' + str(Day)
+        if os.path.exists(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+        export.export(outdir)
     
 def daterange(start_date, end_date):
     for n in range(int ((end_date - start_date).days)):
