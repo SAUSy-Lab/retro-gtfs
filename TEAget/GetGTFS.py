@@ -1,8 +1,37 @@
 import sys
 sys.path.append("..") # Adds higher directory to python modules path.
-import requests, numpy, sys, db, pandasql, conf, warnings
+import requests, numpy, sys, db, pandasql, conf, warnings, WriteDB
 from pandas.core.frame import DataFrame
 
+def GetGTFS(time, Update = True):
+    """ Get latest GTFS at timestamp time """
+    global time
+    if Update:
+        # First get all routes
+        routes = GetAllRoutes(time)
+        # Then get all trips given routes:
+        print(" - fetching trips table ....")
+        trips = GetAllTrips(routes = routes, request_time = time)
+        # then get all stop_times given trips:
+        print("\n - fetching stop_times table ...")
+        stop_times = GetAllStopTImes(trips = trips, request_time = time)
+        print("\n - fetching stop info ...")
+        stops = GetAllStops(stop_times = stop_times, request_time = time)
+
+    print ("initiate/reset tables in database")
+    WriteDB.init_DB(reset_all = Update)
+    
+    # ----- store stop table ----------------------
+    print (" - write routes table to database ...")
+    StoreStops(stops)
+    # -----stop directions table ---------------------
+    print (" - create and write directions to database ...")
+    StoreDirections(trips, stop_times)
+    # ----- true stop times table -----------------------
+    print (" - create and write tru stop times to database ...")
+    StoreTrueStopTimes(stop_times)
+    
+    return routes, trips, stop_times, stops
     
 """ These functions will use GRTFS API to create GTFS tables"""
 def GetAllRoutes(request_time):
@@ -26,7 +55,7 @@ def GetAllRoutes(request_time):
         return
     # get all routes
     routes = DataFrame(ResponseParse['data'])
-    return {'routes': routes, 'timestamp': ResponseParse['header']['timestamp']}
+    return routes
 
 def GetAllTrips(routes, request_time):
     """Get all trips from given route_id's"""
@@ -170,6 +199,7 @@ def GetAllStops(stop_times, request_time):
 
 """ These functions format data and store to database"""
 def StoreStops(stops):
+    global time
     count = 0
     Total = len(stops.index)
     for index, row in stops.iterrows():
@@ -183,9 +213,11 @@ def StoreStops(stops):
                             row['stop_name'],
                             row['stop_code'],
                             row['lon'],
-                            row['lat'])
+                            row['lat'],
+                            time)
         
 def StoreDirections(trips, stop_times):
+    global time
     Directions = pandasql.sqldf(
             """
             select trips.route_id, trips.direction_id, trip_stops.stops
@@ -210,5 +242,55 @@ def StoreDirections(trips, stop_times):
         db.try_storing_direction(route_id = row.route_id, 
                                  did = row.direction_id, 
                                  title = '', name = '', branch = '', useforui = 'f',
-                                 stops = '{' + str(row.stops) + '}'
+                                 stops = '{' + str(row.stops) + '}', report_time = time
                                  )
+
+def StoreTrueStopTimes(stop_times):
+    count = 0
+    Total = len(stop_times.index)
+    for index, row in stop_times.iterrows():
+        
+        # progress status
+        count = count + 1
+        if count*100/Total % 2 == 0:
+            sys.stdout.write("\r" + "progress: {0}%".format(count*100/Total))
+            sys.stdout.flush()
+        # store data
+        c = db.cursor()
+        c.execute(
+                """
+                INSERT INTO {true_stop_times}(
+                        trip_id, stop_id, stop_sequence, arrival_time
+                )
+                VALUES (
+                       {trip_id}, {stop_id}, {stop_sequence}, '{arrival_time}'
+                )
+                """.format(
+                    true_stop_times = conf.conf['db']['tables']['true_stop_times'],
+                    trip_id = row.trip_id,
+                    stop_id = row.stop_id,
+                    stop_sequence = row.stop_sequence,
+                    arrival_time = row.arrival_time
+                )
+        )
+
+def latest_GTFS_update(timestamp):
+    """find the latest GTFS feed update """
+    URL = conf.conf['API_URL']
+    agency = conf.conf['agency']
+    try:
+        APICall = (URL + "/" + 
+                   agency + "/" +
+                   "gtfs/" +
+                   "routes?timestamp=" + repr(timestamp)
+                   )
+        Response = requests.get(APICall)
+    except Exception as e:
+        print('API problem: ' + e)
+        return
+        # response received, check if status is ok
+    ResponseParse = Response.json()
+    if ResponseParse['header']['status'] != 'OK':
+        print('problem with API call: ' + APICall)
+        return
+    return ResponseParse['header']['timestamp']

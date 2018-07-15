@@ -25,48 +25,10 @@ def DropTable(TableName):
             """.format(TableName = TableName)
     )
     
-def init_DB(reset = True):
-    PROJECT_EPSG = conf.PROJECT_EPSG
-    if reset:
-        for key, TableName in conf.conf['db']['tables'].items():
-            if TableExists(TableName): DropTable(TableName)
-    # Create Stops table:
+def init_DB(reset_all = True):
     c = cursor()
-    print('Create stops table')
-    c.execute(
-            """
-            CREATE TABLE {stops} (
-            	uid serial PRIMARY KEY,
-            	stop_id varchar,
-            	stop_name varchar, -- required
-            	stop_code integer, -- public_id
-            	lon numeric,
-            	lat numeric,
-            	the_geom geometry( POINT, {EPSG} ),
-            	report_time double precision -- epoch time
-                );
-            CREATE INDEX ON {stops} (stop_id);
-            """.format(stops = conf.conf['db']['tables']['stops'], EPSG = conf.PROJECT_EPSG)
-            )
-    # Create directions table:
-    print('Create directions table')
-    c.execute(
-            """
-            CREATE TABLE {directions} (
-            	uid serial PRIMARY KEY,
-            	route_id varchar,
-            	direction_id varchar,
-            	title varchar,
-            	name varchar,
-            	branch varchar,
-            	useforui boolean,
-            	stops text[],
-            	report_time double precision, -- epoch time
-            	route_geom geometry( LINESTRING, {EPSG}) -- optional default route geometry
-            );
-            CREATE INDEX ON {directions} (direction_id);
-            """.format(directions = conf.conf['db']['tables']['directions'], EPSG = conf.PROJECT_EPSG)
-            )
+    # Always reset trips:
+    DropTable(conf.conf['db']['tables']['trips'])
     # Create trips table:
     print('Create trips table')
     c.execute(
@@ -88,20 +50,76 @@ def init_DB(reset = True):
             );
             CREATE INDEX ON {trips} (trip_id);
             """.format(trips = conf.conf['db']['tables']['trips'], EPSG = conf.PROJECT_EPSG)
-            )
-    # Create stop_times table:
-    print('Create stop_times table')
-    c.execute(
-            """
-            CREATE TABLE {stop_times} (
-            	trip_id integer,
-            	stop_uid integer,
-            	stop_sequence integer,
-            	etime double precision, -- non-localized epoch time in seconds
-            	fake_stop_id varchar -- allows for repeated visits of the same stop
-            );
-            CREATE INDEX ON {stop_times} (trip_id);
-            """.format(stop_times = conf.conf['db']['tables']['stop_times'])
-            )
+            )    
+    if reset_all:
+        # reset tables
+        for key, TableName in conf.conf['db']['tables'].items():
+            if TableExists(TableName) and TableName != conf.conf['db']['tables']['trips']:                 
+                DropTable(TableName)
+        # Then create new tables
+        # Create Stops table:
+        print('Create stops table')
+        c.execute(
+                """
+                CREATE TABLE {stops} (
+                	uid serial PRIMARY KEY,
+                	stop_id varchar,
+                	stop_name varchar, -- required
+                	stop_code integer, -- public_id
+                	lon numeric,
+                	lat numeric,
+                	the_geom geometry( POINT, {EPSG} ),
+                	report_time double precision -- epoch time
+                    );
+                CREATE INDEX ON {stops} (stop_id);
+                """.format(stops = conf.conf['db']['tables']['stops'], EPSG = conf.PROJECT_EPSG)
+                )
+        # Create directions table:
+        print('Create directions table')
+        c.execute(
+                """
+                CREATE TABLE {directions} (
+                	uid serial PRIMARY KEY,
+                	route_id varchar,
+                	direction_id varchar,
+                	title varchar,
+                	name varchar,
+                	branch varchar,
+                	useforui boolean,
+                	stops text[],
+                	report_time double precision, -- epoch time
+                	route_geom geometry( LINESTRING, {EPSG}) -- optional default route geometry
+                );
+                CREATE INDEX ON {directions} (direction_id);
+                """.format(directions = conf.conf['db']['tables']['directions'], EPSG = conf.PROJECT_EPSG)
+                )
+
+        # Create stop_times table:
+        print('Create stop_times table')
+        c.execute(
+                """
+                CREATE TABLE {stop_times} (
+                	trip_id varchar,
+                	stop_uid integer,
+                	stop_sequence integer,
+                	etime double precision, -- non-localized epoch time in seconds
+                	fake_stop_id varchar -- allows for repeated visits of the same stop
+                );
+                CREATE INDEX ON {stop_times} (trip_id);
+                """.format(stop_times = conf.conf['db']['tables']['stop_times'])
+                )
+        print('Create true_stop_times table')
+        c.execute(
+                """
+                CREATE TABLE {true_stop_times} (
+                	trip_id varchar,
+                	stop_id integer,
+                	stop_sequence integer,
+                    arrival_time varchar,
+                    departure_time varchar
+                	
+                );
+                """.format(true_stop_times = conf.conf['db']['tables']['true_stop_times'])
+                )
             
     

@@ -330,7 +330,7 @@ def get_timepoints(trip_id):
 	return c.fetchall()
 
 
-def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
+def try_storing_stop(stop_id,stop_name,stop_code,lon,lat,report_time):
 	"""we have received a report of a stop from the routeConfig
 		data. Is this a new stop? Have we already heard of it?
 		Decide whether to store it or ignore it. If absolutely
@@ -373,7 +373,7 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 				%(stop_id)s, %(stop_name)s, %(stop_code)s, 
 				ST_Transform( ST_SetSRID( ST_MakePoint(%(lon)s, %(lat)s),4326),%(localEPSG)s ),
 				%(lon)s, %(lat)s, 
-				EXTRACT(EPOCH FROM NOW())
+				%(report_time)f
 			)""".format(**conf['db']['tables']),
 			{ 
 				'stop_id':stop_id,
@@ -381,11 +381,12 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 				'stop_code':stop_code,
 				'lon':lon,
 				'lat':lat,
-				'localEPSG':conf['localEPSG']
+				'localEPSG':conf['localEPSG'],
+                'report_time':report_time
 			} )
 
 
-def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
+def try_storing_direction(route_id,did,title,name,branch,useforui,stops,report_time):
 	"""we have recieved a report of a route direction from the 
 		routeConfig data. Is this a new direction? Have we already 
 		heard of it? Decide whether to store it or ignore it. If 
@@ -428,15 +429,15 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
 				) 
 			VALUES 
 				( 
-					%s, %s, %s,
-					%s, %s, %s, 
-					%s, EXTRACT(EPOCH FROM NOW())
-				)""".format(**conf['db']['tables']),
-			(
-				route_id,did,title,
-				name,branch,useforui,
-				stops
-			)
+					%(route_id)s, %(did)s, %(title)s,
+					%(name)s, %(branch)s, %(useforui)s, 
+					%(stops)s, {report_time}
+				)""".format(directions = conf['db']['tables']['directions'], report_time = report_time),
+			{
+				'route_id':route_id, 'did':did, 'title':title,
+				'name':name, 'branch':branch, 'useforui':useforui,
+				'stops':stops
+			}
 		)
 
 

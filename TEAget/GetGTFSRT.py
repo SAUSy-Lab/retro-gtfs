@@ -3,7 +3,7 @@ sys.path.append("..") # Adds higher directory to python modules path.
 import requests, threading, trip, conf
 from datetime import datetime
 
-def GetAllVehiclePositions(start_time, end_time, trips, increment = 10):
+def GetAllVehiclePositions(start_time, end_time, trips, increment = 20):
     """ fetch all vehicle positions from start_time to end_time (POSIX)
     increment: increment (in seconds) to send timestamp to API"""
     # ------- initiate global variables --------
@@ -82,7 +82,7 @@ def FetchVehiclePositions(timestamp, trips):
             rid = trips.route_id[trips.trip_id == tripId].values[0] # route id            
             did = trips.direction_id[trips.trip_id == tripId].values[0]  # direction id
             lon, lat = v['position']['longitude'], v['position']['latitude']
-            v_timestamp = int(v['timestamp'])
+            v_timestamp = float(v['timestamp'])
             
             if vid not in fleet: # add to fleet if we have not seen this vehicle
                 fleet[vid] = trip.Trip.new(trip_id = tripId, block_id = 0,direction_id = did, route_id = rid, vehicle_id = vid, last_seen = v_timestamp)			
