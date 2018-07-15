@@ -85,16 +85,13 @@ class Trip(object):
 			data, etc. GPS points are stored as an array of times and 
 			a linestring. This function is to be called just before 
 			process() as data is being collected."""
-		times = []
-		for v in self.vehicles:
-			times.append( v.time )
 		db.insert_trip(
 			self.trip_id,
 			self.block_id,
 			self.route_id, 
 			self.direction_id,
 			self.vehicle_id,
-			times,
+			[ v.time for v in self.vehicles ],
 			dumpWKB( self.get_geom(), hex=True )
 		)
 
