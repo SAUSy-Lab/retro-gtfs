@@ -164,7 +164,7 @@ def export(outdir):
                     ON {true_stop_times}.trip_id = filter.trip_id                    
                 ) TO STDOUT CSV HEADER;                
                 """.format(                    
-                    true_stop_times = conf.conf['db']['tables']['true_stop_times']
+                    true_stop_times = conf.conf['db']['tables']['true_stop_times'],
                     stop_times = conf.conf['db']['tables']['stop_times']					
                     )
                 , f)                         
