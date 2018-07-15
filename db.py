@@ -373,16 +373,15 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat,report_time):
 				%(stop_id)s, %(stop_name)s, %(stop_code)s, 
 				ST_Transform( ST_SetSRID( ST_MakePoint(%(lon)s, %(lat)s),4326),%(localEPSG)s ),
 				%(lon)s, %(lat)s, 
-				%(report_time)f
-			)""".format(**conf['db']['tables']),
+				{report_time}
+			)""".format(stops = conf['db']['tables']['stops'], report_time = report_time),
 			{ 
 				'stop_id':stop_id,
 				'stop_name':stop_name,
 				'stop_code':stop_code,
 				'lon':lon,
 				'lat':lat,
-				'localEPSG':conf['localEPSG'],
-                'report_time':report_time
+				'localEPSG':conf['localEPSG']
 			} )
 
 
