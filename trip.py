@@ -131,9 +131,8 @@ class Trip(object):
 
 
 	def get_geom(self):
-		"""Return a clean shapely geometry string using all vehicles
-			in the local projection. Equivalent to orig_geom field in 
-			the trips table."""
+		"""Return a clean shapely geometry LineString in the local projection 
+			using all currently active vehicles."""
 		return LineString( [ v.geom for v in self.vehicles ] )
 
 
