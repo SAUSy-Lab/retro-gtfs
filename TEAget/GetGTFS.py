@@ -5,7 +5,7 @@ from pandas.core.frame import DataFrame
 
 def GetGTFS(time, Update = True):
     """ Get latest GTFS at timestamp time """
-    global time
+    global Time; Time = time
     if Update:
         # First get all routes
         routes = GetAllRoutes(time)
@@ -199,7 +199,7 @@ def GetAllStops(stop_times, request_time):
 
 """ These functions format data and store to database"""
 def StoreStops(stops):
-    global time
+    global Time
     count = 0
     Total = len(stops.index)
     for index, row in stops.iterrows():
@@ -214,10 +214,10 @@ def StoreStops(stops):
                             row['stop_code'],
                             row['lon'],
                             row['lat'],
-                            time)
+                            Time)
         
 def StoreDirections(trips, stop_times):
-    global time
+    global Time
     Directions = pandasql.sqldf(
             """
             select trips.route_id, trips.direction_id, trip_stops.stops
@@ -242,7 +242,7 @@ def StoreDirections(trips, stop_times):
         db.try_storing_direction(route_id = row.route_id, 
                                  did = row.direction_id, 
                                  title = '', name = '', branch = '', useforui = 'f',
-                                 stops = '{' + str(row.stops) + '}', report_time = time
+                                 stops = '{' + str(row.stops) + '}', report_time = Time
                                  )
 
 def StoreTrueStopTimes(stop_times):
