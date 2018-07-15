@@ -132,12 +132,12 @@ def export(outdir):
                 		t.trip_id,		
                 		EXTRACT( EPOCH FROM 
                 			-- local time of stop minus local service date
-                			to_timestamp(round(st.etime)) AT TIME ZONE :'tz' -
+                			to_timestamp(round(st.etime)) AT TIME ZONE {timezone} -
                 			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
                 		) * INTERVAL '1 second' AS arrival_time,
                 		EXTRACT( EPOCH FROM 
                 			-- local time of stop minus local service date
-                			to_timestamp(round(st.etime)) AT TIME ZONE :'tz' -
+                			to_timestamp(round(st.etime)) AT TIME ZONE {timezone} -
                 			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
                 		) * INTERVAL '1 second' AS departure_time,
                 		stop_sequence,
@@ -148,7 +148,8 @@ def export(outdir):
                 ) TO STDOUT CSV HEADER;                
                 """.format(                    
                     trips = conf.conf['db']['tables']['trips'],
-                    stop_times = conf.conf['db']['tables']['stop_times']
+                    stop_times = conf.conf['db']['tables']['stop_times'],
+					timezone = conf.conf['timezone']
                     )
                 , f)  
                                               
