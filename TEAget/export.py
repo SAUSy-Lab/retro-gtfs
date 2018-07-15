@@ -130,20 +130,12 @@ def export(outdir):
                 COPY (
                 	SELECT 
                 		t.trip_id,		
-                		EXTRACT( EPOCH FROM 
-                			-- local time of stop minus local service date
-                			to_timestamp(round(st.etime)) AT TIME ZONE '{timezone}' -
-                			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
-                		) * INTERVAL '1 second' AS arrival_time,
-                		EXTRACT( EPOCH FROM 
-                			-- local time of stop minus local service date
-                			to_timestamp(round(st.etime)) AT TIME ZONE '{timezone}' -
-                			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
-                		) * INTERVAL '1 second' AS departure_time,
+                		to_timestamp(round(st.etime)) AT TIME ZONE '{timezone}' AS arrival_time,
+                		to_timestamp(round(st.etime)) AT TIME ZONE '{timezone}' AS departure_time,
                 		stop_sequence,
                 		fake_stop_id AS stop_id
                 	FROM {stop_times} AS st JOIN {trips} AS t ON st.trip_id = t.trip_id
-                	WHERE NOT t.ignore -- not actually necessary
+                	WHERE NOT t.ignore
                 	ORDER BY trip_id, stop_sequence ASC
                 ) TO STDOUT CSV HEADER;                
                 """.format(                    
