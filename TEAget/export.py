@@ -153,7 +153,8 @@ def export(outdir):
                     SELECT {true_stop_times}.*
                     FROM {true_stop_times} INNER JOIN 
                         (SELECT DISTINCT trip_id from {stop_times}) as filter
-                    ON {true_stop_times}.trip_id = filter.trip_id                    
+                    ON {true_stop_times}.trip_id = filter.trip_id      
+					ORDER BY trip_id, stop_sequence ASC
                 ) TO STDOUT CSV HEADER;                
                 """.format(                    
                     true_stop_times = conf.conf['db']['tables']['true_stop_times'],
