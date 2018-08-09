@@ -313,7 +313,7 @@ def store_timepoints(trip_id,timepoints):
 		# list of tuples
 		records.append( (trip_id,timepoint.stop_id,timepoint.arrival_time,seq) )
 		seq += 1
-	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
+	args_str = ','.join( [ "({},{},{},{})".format(*x) for x in records ] )
 	c.execute("INSERT INTO {stop_times} (trip_id, stop_uid, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
 
 

@@ -208,7 +208,7 @@ class Trip(object):
 					self.vehicles.pop(index)
 					self.ignored_vehicles.append(v)
 		else:
-			print 'ERROR'
+			print( 'ERROR' )
 
 
 	def has_errors(self):

@@ -40,7 +40,7 @@ def get_new_vehicles():
 			timeout=3
 		)
 	except:
-		print 'connection problem at',time.strftime("%b %d %Y %H:%M:%S")
+		print ('connection problem at',time.strftime("%b %d %Y %H:%M:%S") )
 		return
 	# UNIX time the response was received
 	response_time = time.time()
@@ -106,7 +106,7 @@ def get_new_vehicles():
 				fleet[vid].last_seen = report_time
 				fleet[vid].seq += 1
 	# release the fleet lock
-	print len(fleet),'in fleet,',len(ending_trips),'ending trips at',time.strftime("%b %d %Y %H:%M:%S")
+	print ( len(fleet),'in fleet,',len(ending_trips),'ending trips at',time.strftime("%b %d %Y %H:%M:%S") )
 	# store the trips which are ending
 	for some_trip in ending_trips:
 		if len(some_trip.vehicles) > 1:
@@ -134,7 +134,7 @@ def fetch_route(route_id):
 			timeout=3
 		)
 	except:
-		print 'connection error fetching route at',time.strftime("%b %d %Y %H:%M:%S")
+		print( 'connection error fetching route at',time.strftime("%b %d %Y %H:%M:%S") )
 		return
 	# this is the whole big ol' parsed XML document
 	XML = ET.fromstring(response.text)
@@ -178,7 +178,7 @@ def fetch_route(route_id):
 				ordered_stop_tags			# stops
 			)
 	with print_lock:
-		print 'fetched route',route_id
+		print( 'fetched route',route_id )
 
 def all_routes():
 	"""return a list of all available route tags"""
@@ -190,7 +190,7 @@ def all_routes():
 			timeout=5
 		)
 	except:
-		print 'connection error'
+		print( 'connection error' )
 		return []
 	# this is the whole big ol' parsed XML document
 	XML = ET.fromstring(response.text)

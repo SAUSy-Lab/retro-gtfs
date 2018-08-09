@@ -142,13 +142,13 @@ class match(object):
 	def print_outcome(self):
 		"""Print the outcome of this match to stdout."""
 		if self.default_route_used and self.confidence == 1:
-			print '\tdefault route used for direction',self.trip.direction_id
+			print( '\tdefault route used for direction',self.trip.direction_id )
 		elif self.default_route_used and self.confidence == 0:
-			print '\tdefault route not found for',self.trip.direction_id
+			print( '\tdefault route not found for',self.trip.direction_id )
 		elif not self.default_route_used and self.confidence > conf['min_OSRM_match_quality']:
-			print '\tOSRM match found with',round(self.confidence,3),'confidence'
+			print( '\tOSRM match found with',round(self.confidence,3),'confidence' )
 		else:
-			print '\tmatching failed for trip',self.trip.trip_id
+			print( '\tmatching failed for trip',self.trip.trip_id )
 
 
 	# Below are functions associated with finding the measure of points along
