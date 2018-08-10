@@ -33,6 +33,9 @@ class Vehicle(object):
 		assert measure_in_meters >= 0
 		self.measure = measure_in_meters
 
+	def __repr__(self):
+		return str(self.__dict__)
+
 
 
 class Stop(object):
@@ -48,6 +51,8 @@ class Stop(object):
 		assert measure_in_meters >= 0
 		self.measure = measure_in_meters
 
+	def __repr__(self):
+		return str(self.__dict__)
 
 
 class TimePoint(object):
@@ -72,4 +77,5 @@ class TimePoint(object):
 		self.arrival_time = epoch_time
 		self.departure_time = epoch_time
 	
-
+	def __repr__(self):
+		return str(self.__dict__)
