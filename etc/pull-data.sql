@@ -10,9 +10,9 @@
 */
 
 -- set your table name prefix
-\set prefix            'ttc_'
+\set prefix            'mbta_'
 -- set your service_id as a row_record, i.e. '(1,2,3)'
-\set service_ids       '(17476)'
+\set service_ids       '(17476,17477,17478,17479,17480)'
 
 -- set the table names
 \set stops_table       :prefix'stops'
@@ -22,7 +22,7 @@
 -- timezone
 \set tz                'America/Toronto'
 -- where to save the output
-\set outdir            '/home/nate/retro-gtfs/output/ttc/'
+\set outdir            '/home/nate/retro-gtfs/output/mbta/'
 -- stop configuration past here... just setting output locations from 
 -- the above because concatenation is complicated
 \set calendar_dates    :outdir'calendar_dates.txt'
@@ -153,7 +153,10 @@ COPY (
 			('1970-01-01'::date + t.service_id * INTERVAL '1 day')::date
 		) * INTERVAL '1 second' AS departure_time,
 		stop_sequence,
-		fake_stop_id AS stop_id
+		fake_stop_id AS stop_id,
+		0 AS pickup_type,	
+		0 AS drop_off_type,	
+		NULL::int AS timepoint
 	FROM :stop_times_table AS st JOIN :trips_table AS t ON st.trip_id = t.trip_id
 	WHERE service_id IN :service_ids AND NOT t.ignore 
 	ORDER BY trip_id, stop_sequence ASC
