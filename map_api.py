@@ -64,8 +64,10 @@ class match(object):
 
 	def query_OSRM(self):
 		"""Construct the request and send it to OSRM, retrying if necessary."""
-		# structure it as API requires
-		coords = ';'.join( [ str(v.lon)+','+str(v.lat) for v in self.trip.vehicles ] )
+		# structure it as API requires, rounding coords to 6 decimals
+		coords = ';'.join( [ 
+			format(v.lon,'.7g')+','+format(v.lat,'.7g') for v in self.trip.vehicles 
+		] )
 		radii = ';'.join( [ str(self.error_radius) ] * len(self.trip.vehicles) )
 		# construct and send the request
 		options = {
