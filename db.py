@@ -504,7 +504,7 @@ def get_trip_ids_unfinished():
 		"""
 			SELECT trip_id 
 			FROM {trips} 
-			WHERE problem = '' AND ignore
+			WHERE problem IN ('','connection issue') AND ignore
 			ORDER BY trip_id ASC;
 		""".format(**conf['db']['tables'])
 	)
