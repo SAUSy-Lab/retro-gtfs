@@ -123,10 +123,12 @@ class Trip(object):
 			self.trip_id,
 			dumpWKB( self.get_geom(), hex=True )
 		)
+		# get the stops (as a list of Stop objects)
+		self.stops = db.get_stops(self.direction_id,self.last_seen)
 		# and begin matching
 		self.map_match_trip()
-		if len(self.vehicles) < 3:
-			return db.ignore_trip(self.trip_id,'too many vehicles removed during measurement')
+		if not self.match.is_useable:
+			return db.ignore_trip(self.trip_id,'match problem')
 		self.interpolate_stop_times()
 
 
@@ -155,10 +157,9 @@ class Trip(object):
 
 
 	def map_match_trip(self):
-		"""1) Match the trip GPS points to the road network, id est, improve
-			the spatial accuracy of the trip.
-			2) Get the location/measure of stops and vehicles along the path.
-			4) Interpolate sequence of stop_times from vehicle times."""
+		"""Match the trip GPS points to the road network, ie, improve
+			the spatial accuracy of the trip. Get the location/measure of stops 
+			and vehicles along the path."""
 		# create a match object, passing it this trip to get it started
 		self.match = map_api.match(self)
 		if not self.match.is_useable:
@@ -169,29 +170,15 @@ class Trip(object):
 			self.match.confidence,
 			dumpWKB(self.match.geometry,hex=True)
 		)
-		# find the measure of the vehicles for time interpolation
-		self.match.locate_vehicles_on_route()
 
 
 	def interpolate_stop_times(self):
 		"""Interpolates stop times after map matching."""
-		if not self.match.is_useable:
-			return
-		# get the stops (as a list of Stop objects)
-		self.stops = db.get_stops(self.direction_id,self.last_seen)
-		# locate the stops on the route. This generates a list of timepoints
-		# with measures but without times. These are sorted already by measure
-		self.timepoints = self.match.locate_stops_on_route()
 		# interpolate/extrapolate times for each timepoint
 		for timepoint in self.timepoints:
 			timepoint.set_time( self.interpolate_time(timepoint.measure) )
-		# there is more than one stop, right?
-		if len(self.timepoints) > 1:
-			# store the stop times
-			db.store_timepoints(self.trip_id,self.timepoints)
-		else:
-			db.ignore_trip(self.trip_id,'one or fewer timepoints')
-		return
+		# store the stop times
+		db.store_timepoints(self.trip_id,self.timepoints)
 
 
 	def ignore_vehicle(self,var):

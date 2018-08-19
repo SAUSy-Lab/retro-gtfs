@@ -34,33 +34,40 @@ class match(object):
 		self.default_route_used = False;
 		# fire off a query to OSRM with the default parameters
 		self.query_OSRM()
-		if not self.is_useable:
-			# try with a slightly larger error radius
+		if not self.OSRM_match_is_sufficient:
+			# try again with a larger error radius
 			self.error_radius *= 1.5
 			self.query_OSRM()
-		# still no good?
-		if not self.is_useable:
-			# use a default geometry?
-			self.use_default()
-			if not self.is_useable:
-				return
-			else:
-				# if we're here we need to parse a default geometry
-				pass
-				# this is actually already done
-		else:
-			# if we're here we need to parse a useable OSRM response
+		# still no good? 
+		if not self.OSRM_match_is_sufficient:
+			# Try a default geometry
+			if not self.get_default_route():
+				return # bad match, no default, need to abort
+		else: # have a workable OSRM match geometry
 			self.parse_OSRM_geometry()
-			pass
+		# find the measure of the vehicles and stops for time interpolation
+		self.locate_vehicles_on_route()
+		self.locate_stops_on_route()
 		# report on what happened
 		self.print_outcome()
 
 
 	@property
-	def is_useable(self):
+	def OSRM_match_is_sufficient(self):
 		"""Is this match good enough actually to be used?"""
 		return self.confidence >= conf['min_OSRM_match_quality']
 
+	@property
+	def is_useable(self):
+		"""Do we have everything we need to proceed with the match?"""
+		if ( (self.OSRM_match_is_sufficient or self.default_route_used) 
+			and len(self.trip.vehicles) > 3 
+			and len(self.trip.timepoints) > 1 
+		):
+			return True
+		else: 
+			return False
+			
 
 	def query_OSRM(self):
 		"""Construct the request and send it to OSRM, retrying if necessary."""
@@ -122,23 +129,19 @@ class match(object):
 		self.geometry = simple_local_multilines
 
 
-	def use_default(self):
-		"""OSRM map matching has failed. We'll now check if a default route 
-			geometry has been supplied. If so, we'll need to parse things into 
-			an identical format, just as though this had come from OSRM.
-			If there is no default, we set the confidence to 0 and return."""
+	def get_default_route(self):
+		"""Check if a default route geometry is available; if so, we'll need to 
+			parse things into the same format, just as though this had come from 
+			OSRM."""
 		# get the default if there is one
 		route_geom = db.get_route_geom( self.trip.direction_id, self.trip.last_seen )
-		# if no default
-		if not route_geom: 
-			self.confidence = 0
-			return 
-		# if there WAS a default
-		else: 
+		if route_geom: # default available
 			self.default_route_used = True
 			self.confidence = 1
 			self.geometry = MultiLineString([route_geom])
-			return
+			return True
+		else: # no default
+			return False
 
 
 	def print_outcome(self):
@@ -305,6 +308,6 @@ class match(object):
 			]
 		# sort by measure ascending
 		final_timepoints = sorted(final_timepoints,key=lambda timepoint: timepoint.measure)
-		return final_timepoints
+		self.trip.timepoints = final_timepoints
 
 
