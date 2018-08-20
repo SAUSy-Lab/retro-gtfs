@@ -41,13 +41,15 @@ class match(object):
 		# still no good? 
 		if not self.OSRM_match_is_sufficient:
 			# Try a default geometry
-			if not self.get_default_route():
-				return # bad match, no default, need to abort
+			if self.get_default_route():
+				self.locate_vehicles_on_default_route()
+			else: 
+				return # bad match, no default
 		else: # have a workable OSRM match geometry
 			self.parse_OSRM_geometry()
-		# find the measure of the vehicles and stops for time interpolation
-		self.locate_vehicles_on_route()
-		self.locate_stops_on_route()
+			self.locate_vehicles_on_OSRM_route()
+		if len(self.trip.vehicles) > 2:
+			self.locate_stops_on_route()
 		# report on what happened
 		self.print_outcome()
 
@@ -60,13 +62,16 @@ class match(object):
 	@property
 	def is_useable(self):
 		"""Do we have everything we need to proceed with the match?"""
-		if ( (self.OSRM_match_is_sufficient or self.default_route_used) 
-			and len(self.trip.vehicles) > 3 
-			and len(self.trip.timepoints) > 1 
-		):
-			return True
-		else: 
+		if not (self.OSRM_match_is_sufficient or self.default_route_used):
 			return False
+		if not len(self.trip.vehicles) > 3:
+			return False
+		if self.trip.vehicles[0].measure == self.trip.vehicles[-1].measure:
+			return False
+		if not len(self.trip.timepoints) > 1:
+			return False
+		# and only if we make it past all those conditions:
+		return True
 			
 
 	def query_OSRM(self):
@@ -161,79 +166,83 @@ class match(object):
 	# These are called from inside the trip if the match is useable.
 
 
-	def locate_vehicles_on_route(self):
-		"""Find the measure of vehicles along the route. With OSRM this is easy. 
-			A default route requires more guesswork. Each vehicle has only one 
-			location."""
-		if not self.default_route_used:
-			# these are the matched points of the input cordinates
-			# null (None) entries indicate an omitted (outlier) point
-			# true where not none
-			drop_list = [ point is None for point in self.OSRM_response['tracepoints'] ]
-			# drop vehicles that did not contribute to the match,
-			# backwards to maintain order
-			for i in reversed( range( 0, len(drop_list) ) ):
-				if drop_list[i]: self.trip.ignore_vehicle( i )
-			# get cumulative distances of each vehicle along the match geom
-			# This is based on the leg distances provided by OSRM. Each leg is just 
-			# the trip between matched points. Each match has one more vehicle record 
-			# associated with it than legs
-			cummulative_distance = 0
-			v_i = 0
-			for matching in self.OSRM_response['matchings']:
-				# the first point is at 0 per match
+	def locate_vehicles_on_OSRM_route(self):
+		"""Find the measure of vehicles along the OSRM-supplied route. This is 
+		easy because OSRM provides the distance of an input coordinate along the 
+		match geometry."""
+		assert not self.default_route_used
+		# these are the matched points of the input cordinates
+		# null (None) entries indicate an omitted (outlier) point
+		# true where not none
+		drop_list = [ point is None for point in self.OSRM_response['tracepoints'] ]
+		# drop vehicles that did not contribute to the match,
+		# backwards to maintain order
+		for i in reversed( range( 0, len(drop_list) ) ):
+			if drop_list[i]: self.trip.ignore_vehicle( i )
+		# get cumulative distances of each vehicle along the match geom
+		# This is based on the leg distances provided by OSRM. Each leg is just 
+		# the trip between matched points. Each match has one more vehicle record 
+		# associated with it than legs
+		cummulative_distance = 0
+		v_i = 0
+		for matching in self.OSRM_response['matchings']:
+			# the first point is at 0 per match
+			self.trip.vehicles[v_i].set_measure( cummulative_distance )
+			v_i += 1
+			for leg in matching['legs']:
+				cummulative_distance += leg['distance']
 				self.trip.vehicles[v_i].set_measure( cummulative_distance )
 				v_i += 1
-				for leg in matching['legs']:
-					cummulative_distance += leg['distance']
-					self.trip.vehicles[v_i].set_measure( cummulative_distance )
-					v_i += 1
-			# Because the line has been simplified, the distances will be 
-			# slightly off and need correcting 
-			adjust_factor = self.geometry.length / self.trip.vehicles[-1].measure
-			for v in self.trip.vehicles:
-				v.measure = v.measure * adjust_factor
-		else: # default route used
-			# match stops within a distance of the route geometry
-			vehicles_to_ignore = []
-			for vehicle in self.trip.vehicles:
-				# if the vehicle is close enough
-				distance_from_route = self.geometry.distance( vehicle.geom )
-				if distance_from_route <= conf['stop_dist']:
-					m = self.geometry.project(vehicle.geom)
-					vehicle.set_measure(m)
-				else:
-					# ignore this vehicle
-					vehicles_to_ignore.append(vehicle)
-			# ignore vehicles not close enough to the route
-			for vehicle in vehicles_to_ignore:
-				self.trip.ignore_vehicle( vehicle )
-			# now we're going to try this ambitious new drop-sorting algorithm. 
-			# basically, the string should mostly already be ordered by measure
-			# except for a few positions which will be transposed. I want to find
-			# the transposition distance of each vehicle from itself if the string
-			# were sorted by measure. Then I'll drop the vehicles with the largest
-			# transposition distance at each step
-			# 
-			# while the list is not fully sorted
-			while self.trip.vehicles != sorted(self.trip.vehicles,key=lambda v: v.measure):
-				correct_order = sorted(self.trip.vehicles,key=lambda v: v.measure)
-				current_order = self.trip.vehicles
-				transpositions = {}
-				# compare all vehicles in both lists
-				for i,v1 in enumerate(correct_order):
-					for j,v2 in enumerate(current_order):
-						if v1 == v2:
-							if abs(i-j) > 0: # not in the same position
-								# add these vehicles to the list with their distances as keys
-								if abs(i-j) not in transpositions: transpositions[abs(i-j)] = [v1]
-								else: transpositions[abs(i-j)].append(v1)
-							else: # are in the same position
-								continue
-				max_dist = max(transpositions.keys())
-				# ignore vehicles associated with the max of the transposition distances
-				for vehicle in transpositions[max_dist]:
-					self.trip.ignore_vehicle(vehicle)
+		# Because the line has been simplified, the distances will be 
+		# slightly off and need correcting 
+		adjust_factor = self.geometry.length / self.trip.vehicles[-1].measure
+		for v in self.trip.vehicles:
+			v.measure = v.measure * adjust_factor
+
+
+	def locate_vehicles_on_default_route(self):
+		"""Find the measure of vehicles along the default route. First discard 
+		observations too far from the route geometry. Next, find the measure of 
+		the remaining vehicles in the order they were observed. If the vehicles 
+		progress monotonically down the line then all is good. Otherwise, we 
+		start dropping observations that are most severely out of order until we 
+		are left with an ordered list moving along the route in the correct 
+		direction. Wrong direction travel will generally result in a minimal
+		ordered set: 1 remaining observation."""
+		assert self.default_route_used
+		# match stops within a distance of the route geometry
+		vehicles_to_ignore = []
+		for vehicle in self.trip.vehicles:
+			# if the vehicle is close enough
+			distance_from_route = self.geometry.distance( vehicle.geom )
+			if distance_from_route <= conf['stop_dist']:
+				m = self.geometry.project(vehicle.geom)
+				vehicle.set_measure(m)
+			else:
+				vehicles_to_ignore.append(vehicle)
+		for vehicle in vehicles_to_ignore:
+			self.trip.ignore_vehicle( vehicle )
+		# while the list is not fully sorted
+		while self.trip.vehicles != sorted(self.trip.vehicles,key=lambda v: v.measure):
+			correct_order = sorted(self.trip.vehicles,key=lambda v: v.measure)
+			current_order = self.trip.vehicles
+			transpositions = {}
+			# compare all vehicles in both lists
+			for i,v1 in enumerate(correct_order):
+				for j,v2 in enumerate(current_order):
+					if v1 == v2:
+						if abs(i-j) > 0: # not in the same position
+							# add these vehicles to the list with their distances as keys
+							if abs(i-j) not in transpositions: transpositions[abs(i-j)] = [v1]
+							else: transpositions[abs(i-j)].append(v1)
+						else: # are in the same position
+							continue
+			max_dist = max(transpositions.keys())
+			# ignore vehicles associated with the max of the transposition distances
+			for vehicle in transpositions[max_dist]:
+				self.trip.ignore_vehicle(vehicle)
+		# now we either have a sorted list or an essentially empty list if the 
+		# match happened to be bad
 
 
 	def locate_stops_on_route(self):
