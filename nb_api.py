@@ -1,6 +1,8 @@
 # functions involving requests to the nextbus APIs
 
 import requests, time, db, random, sys
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import threading, multiprocessing
 import xml.etree.ElementTree as ET
 from trip import Trip
@@ -126,16 +128,20 @@ def fetch_route(route_id):
 		about a given route. Hits the routeConfig command, parses the
 		results, and checks them against available information."""
 	# request routeConfig for this route
-	try: 
-		response = requests.get(
-			'http://webservices.nextbus.com/service/publicXMLFeed', 
-			params={'command':'routeConfig','a':conf['agency'],'r':route_id,'verbose':''}, 
-			headers={'Accept-Encoding':'gzip, deflate'}, 
-			timeout=3
-		)
-	except:
-		print( 'connection error fetching route at',time.strftime("%b %d %Y %H:%M:%S") )
-		return
+	with requests.Session() as session:
+		retries = Retry( total=3, backoff_factor=1 )
+		session.mount( 'http://', HTTPAdapter(max_retries=retries) )
+		try: 
+			response = session.get(
+				'http://webservices.nextbus.com/service/publicXMLFeed', 
+				params={'command':'routeConfig','a':conf['agency'],'r':route_id,'verbose':''}, 
+				headers={'Accept-Encoding':'gzip, deflate'}, 
+				timeout=conf['OSRMserver']['timeout']
+			)
+		except:
+			print( 'connection error fetching route',route_id,'at',
+				time.strftime("%b %d %Y %H:%M:%S") )
+			return
 	# this is the whole big ol' parsed XML document
 	XML = ET.fromstring(response.text)
 	# get a list of all stops with locations and iterate over them
