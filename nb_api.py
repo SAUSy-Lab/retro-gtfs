@@ -57,7 +57,7 @@ def get_new_vehicles():
 	# prevent simulataneous editing
 	with fleet_lock:
 		# check to see if there's anything we just haven't heard from at all lately
-		for vid in fleet.keys():
+		for vid in list(fleet.keys()):
 			# if it's been more than 3 minutes
 			if server_time - fleet[vid].last_seen > 180:
 				# it has ended
