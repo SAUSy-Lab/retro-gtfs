@@ -13,15 +13,15 @@ from minor_objects import TimePoint
 
 class match(object):
 	"""This object is responsible for coming up with a more spatially accurate 
-		version of the trip. We do this by first trying to map match the GPS 
-		track to the street/rail network using OSRM. If that doesn't work well 
-		for any reason, we try altering some parameters to improve the match. 
-		If it's still not great, we can see if there is a default route_geometry 
-		provided. Ultimately, we judge whether the match is sufficent to proceed.
+	version of the trip. We do this by first trying to map match the GPS 
+	track to the street/rail network using OSRM. If that doesn't work well 
+	for any reason, we try altering some parameters to improve the match. 
+	If it's still not great, we can see if there is a default route_geometry 
+	provided. Ultimately, we judge whether the match is sufficent to proceed.
 
-		If we do use this match, this object also provides methods for associating 
-		points (vehicles, stops) with points along the route gemetry; these will 
-		be used for time interpolation insidethe trip object."""
+	If we do use this match, this object also provides methods for associating 
+	points (vehicles, stops) with points along the route gemetry; these will 
+	be used for time interpolation inside the trip object."""
 
 	def __init__(self,trip_object):
 		# initialize some variables
