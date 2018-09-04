@@ -33,7 +33,7 @@ if getRoutes:
 	for route_id in routes:
 		t = threading.Thread(target=fetch_route,args=(route_id,))
 		t.start()
-		if threading.active_count() >= 20:
+		if threading.active_count() >= 10:
 			sleep(3)
 
 	sleep(10)
