@@ -23,7 +23,7 @@ Related projects by other people:
 
 ## Citation
 
-A paper outlining the project and the basic algorithm has been [published in the Journal of Transport Geography](http://www.sciencedirect.com/science/article/pii/S0966692317300388). Any academic use of this code should please cite that work.
+A paper outlining the project and the basic algorithm was [published in the Journal of Transport Geography](http://www.sciencedirect.com/science/article/pii/S0966692317300388). Please cite that work for any use of this code for research purposes.
 
 ```latex
 @Article{Wessel2017,
@@ -36,3 +36,5 @@ A paper outlining the project and the basic algorithm has been [published in the
   url       = {http://sausy.ca/wp-content/uploads/2017/11/retro-GTFS-paper.pdf}
 }
 ```
+
+One may also be interested in _[On the Accuracy of Schedule-Based GTFS for Measuring Accessibility](https://osf.io/preprints/socarxiv/hzgpd/)_, currently available as a working paper. 
