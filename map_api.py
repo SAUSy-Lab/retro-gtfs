@@ -7,7 +7,6 @@ from numpy import mean
 from shapely.geometry import MultiLineString, asShape
 from shapely.ops import transform as reproject
 from copy import copy
-from geom import cut
 from minor_objects import TimePoint
 
 
@@ -126,7 +125,10 @@ class match(object):
 			an identical format, just as though this had come from OSRM.
 			If there is no default, we set the confidence to 0 and return."""
 		# get the default if there is one
-		route_geom = db.get_route_geom( self.trip.direction_id, self.trip.last_seen )
+#		route_geom = db.get_route_geom( self.trip.direction_id, self.trip.last_seen )
+		# no route_geom at the moment
+		route_geom = False 
+    
 		# if no default
 		if not route_geom: 
 			self.confidence = 0
@@ -142,13 +144,13 @@ class match(object):
 	def print_outcome(self):
 		"""Print the outcome of this match to stdout."""
 		if self.default_route_used and self.confidence == 1:
-			print '\tdefault route used for direction',self.trip.direction_id
+			print('\tdefault route used for direction',self.trip.direction_id)
 		elif self.default_route_used and self.confidence == 0:
-			print '\tdefault route not found for',self.trip.direction_id
+			print('\tdefault route not found for',self.trip.direction_id)
 		elif not self.default_route_used and self.confidence > conf['min_OSRM_match_quality']:
-			print '\tOSRM match found with',round(self.confidence,3),'confidence'
+			print('\tOSRM match found with',round(self.confidence,3),'confidence')
 		else:
-			print '\tmatching failed for trip',self.trip.trip_id
+			print('\tmatching failed for trip',self.trip.trip_id)
 
 
 	# Below are functions associated with finding the measure of points along
@@ -236,7 +238,9 @@ class match(object):
 			route. Stops must be within a given distance of the path, but can 
 			repeat if the route passes a stop two or more times. To check for this,
 			the geometry is sliced up into segments and we check just a portion 
-			of the route at a time."""
+			of the route at a time.
+          In this branch, we use all potential stops given by GTFS and disregard the distance
+      """
 		assert len(self.trip.stops) > 0
 		assert self.geometry.length > 0
 		# list of timepoints
@@ -245,64 +249,16 @@ class match(object):
 		path = copy(self.geometry)
 		traversed = 0
 		# while there is more than 750m of path remaining
-		while path.length > 0:
-			subpath, path = cut(path,750)
-			# check for nearby stops
-			for stop in self.trip.stops:
-				# if the stop is close enough
-				stop_dist = subpath.distance(stop.geom)
-				if stop_dist <= conf['stop_dist']:
-					# measure how far it is along the trip
-					m = traversed + subpath.project(stop.geom)
-					# add it to the list of measures
-					potential_timepoints.append( TimePoint(stop,m,stop_dist) )
-			# note what we have already traversed
-			traversed += 750
+		for stop in self.trip.stops:
+			stop_dist = path.distance(stop.geom)
+			# measure how far it is along the trip
+			m = traversed + path.project(stop.geom)
+			# add it to the list of measures
+			potential_timepoints.append( TimePoint(stop,m,stop_dist) )
 		# Now some of these will be duplicates that are close to the cutpoint
 		# and thus are added twice with similar measures
 		# such points need to be removed
-		final_timepoints = []
-		for pt in potential_timepoints:
-			skip_this_timepoint = False
-			for ft in final_timepoints:
-				# if same stop and very close
-				if pt.stop_id == ft.stop_id and abs(pt.measure-ft.measure) < 2*conf['stop_dist']:
-					#choose the closer of the two to use
-					if ft.dist <= pt.dist:
-						skip_this_timepoint = True
-						break 
-					else:
-						ft = pt
-						skip_this_timepoint = True
-						break
-			if not skip_this_timepoint:
-				# we didn't have anything like that in the final set yet
-				final_timepoints.append( pt )
-		# add terminal stops if they are anywhere near the GPS data
-		# but not used yet
-		if not self.default_route_used:
-			# for first and last stops
-			for terminal_stop in [self.trip.stops[0],self.trip.stops[-1]]:
-				if not terminal_stop.id in [ t.stop.id for t in potential_timepoints ]:
-					# if the terminal stop is less than 500m away from the route
-					dist = self.geometry.distance(terminal_stop.geom)
-					if dist < 500:
-						m = self.geometry.project(terminal_stop.geom)
-						final_timepoints.append( TimePoint(
-							terminal_stop,
-							m-dist if m < self.geometry.length/2 else m+dist,
-							dist
-						) )
-		# for default geometries on the other hand, remove stops that are nowhere
-		# near the actual GPS data
-		else:
-			final_timepoints = [
-				t for t in final_timepoints if 
-				t.measure > self.trip.vehicles[0].measure - 500 and 
-				t.measure < self.trip.vehicles[-1].measure + 500
-			]
-		# sort by measure ascending
-		final_timepoints = sorted(final_timepoints,key=lambda timepoint: timepoint.measure)
+		final_timepoints = potential_timepoints
 		return final_timepoints
 
 

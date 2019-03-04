@@ -3,14 +3,12 @@
 
 import re, db, math, random , warnings
 import map_api
-from geom import cut
 from numpy import mean
 from conf import conf
 from shapely.wkb import loads as loadWKB, dumps as dumpWKB
 from shapely.ops import transform as reproject
 from shapely.geometry import Point, asShape, LineString, MultiLineString
 from minor_objects import Vehicle
-import db
 
 class Trip(object):
 	"""The trip class provides all the methods needed for dealing
@@ -192,6 +190,7 @@ class Trip(object):
 		# create a match object, passing it this trip to get it started
 		self.match = map_api.match(self)
 		if not self.match.is_useable:
+			print('-- match problem--')
 			return db.ignore_trip(self.trip_id,'match problem')
 		# store the match info and geom in the DB
 		db.add_trip_match(
@@ -208,7 +207,7 @@ class Trip(object):
 		if not self.match.is_useable:
 			return
 		# get the stops (as a list of Stop objects)
-		self.stops = db.get_stops(self.direction_id,self.last_seen)
+		self.stops = db.get_stops(self.trip_id)
 		# locate the stops on the route. This generates a list of timepoints
 		# with measures but without times. These are sorted already by measure
 		self.timepoints = self.match.locate_stops_on_route()
@@ -238,7 +237,7 @@ class Trip(object):
 					self.vehicles.pop(index)
 					self.ignored_vehicles.append(v)
 		else:
-			print 'ERROR'
+			print('ERROR')
 
 
 	def has_errors(self):

@@ -220,29 +220,26 @@ def get_direction_uid(direction_id,trip_time):
 	return uid
 
 
-def get_stops(direction_id, trip_time):
-	"""Get an ordered list of Stop objects from the schedule data."""
-	c = cursor()
-	# get the uid of the relevant direction entry
-	direction_uid = get_direction_uid(direction_id,trip_time)
-	if not direction_uid: return None
-	c.execute(	
-		"""
-			SELECT uid, the_geom FROM (
-				SELECT 
-					DISTINCT ON (a.stop) a.stop AS stop_id,
-					s.uid,
-					a.seq,
-					s.the_geom
-				FROM {directions} AS d, unnest(d.stops) WITH ORDINALITY a(stop, seq)
-				JOIN {stops} AS s ON s.stop_id = a.stop
-				WHERE d.uid = %(direction_uid)s AND s.report_time <= %(trip_time)s
-				-- get uniques stops with the earliest report time and order by sequence
-				ORDER BY a.stop, s.report_time
-			) AS whatever ORDER BY seq
-		""".format(**conf['db']['tables']),
-		{ 'direction_uid':direction_uid, 'trip_time':trip_time }
-	)
+def get_stops(trip_id):
+	"""Get an ordered list of Stop objects from the schedule data by looking up trip_id."""
+	c = cursor()	
+	# get the uid of the relevant direction entry    
+	c.execute(
+            """
+            SELECT uid, the_geom FROM (            
+                SELECT a.stop as stop_id,
+                    s.uid,
+                    a.seq,
+                    s.the_geom
+                FROM {directions} as d, unnest(d.stops) with ordinality a(stop,seq)
+                JOIN {stops} as s
+                ON s.stop_id = a.stop
+                where d.trip_id = %(trip_id)s
+                ORDER by seq
+            ) AS whatever
+            """.format(**conf['db']['tables']),
+            {'trip_id':trip_id}
+   )
 	# return a schedule-ordered list of stop objects
 	return [ Stop( stop_uid, geom ) for stop_uid, geom in c.fetchall() ]
 
@@ -303,7 +300,7 @@ def get_trip_problem(trip_id):
 def store_timepoints(trip_id,timepoints):
 	"""store the estimated stop times for a trip"""
 	assert len(timepoints) > 1
-	c = cursor()
+	cu = cursor()
 	# be sure the timepoints are in ascending temporal order
 	timepoints = sorted(timepoints,key=lambda tp: tp.arrival_time) 
 	# insert the stops
@@ -313,8 +310,8 @@ def store_timepoints(trip_id,timepoints):
 		# list of tuples
 		records.append( (trip_id,timepoint.stop_id,timepoint.arrival_time,seq) )
 		seq += 1
-	args_str = ','.join(c.mogrify("(%s,%s,%s,%s)", x) for x in records)
-	c.execute("INSERT INTO {stop_times} (trip_id, stop_uid, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
+	args_str = ','.join( [ "({},{},{},{})".format(*x) for x in records ] )
+	cu.execute("INSERT INTO {stop_times} (trip_id, stop_uid, etime, stop_sequence) VALUES ".format(**conf['db']['tables']) + args_str)
 
 
 def get_timepoints(trip_id):
@@ -385,7 +382,7 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat,report_time):
 			} )
 
 
-def try_storing_direction(route_id,did,title,name,branch,useforui,stops,report_time):
+def try_storing_direction(trip_id, route_id,did,title,name,branch,useforui,stops,report_time):
 	"""we have recieved a report of a route direction from the 
 		routeConfig data. Is this a new direction? Have we already 
 		heard of it? Decide whether to store it or ignore it. If 
@@ -397,6 +394,7 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops,report_t
 		"""
 			SELECT * FROM {directions}
 			WHERE
+             trip_id = %s AND
 				route_id = %s AND
 				direction_id = %s AND
 				title = %s AND
@@ -406,6 +404,7 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops,report_t
 				stops = %s;
 		""".format(**conf['db']['tables']),
 		(
+          trip_id,
 			route_id,
 			did,
 			title,
@@ -422,18 +421,18 @@ def try_storing_direction(route_id,did,title,name,branch,useforui,stops,report_t
 		"""
 			INSERT INTO {directions} 
 				( 
-					route_id, direction_id, title, 
+					trip_id, route_id, direction_id, title, 
 					name, branch, useforui, 
 					stops, report_time
 				) 
 			VALUES 
 				( 
-					%(route_id)s, %(did)s, %(title)s,
+					%(trip_id)s, %(route_id)s, %(did)s, %(title)s,
 					%(name)s, %(branch)s, %(useforui)s, 
 					%(stops)s, {report_time}
 				)""".format(directions = conf['db']['tables']['directions'], report_time = report_time),
 			{
-				'route_id':route_id, 'did':did, 'title':title,
+				'trip_id':trip_id, 'route_id':route_id, 'did':did, 'title':title,
 				'name':name, 'branch':branch, 'useforui':useforui,
 				'stops':stops
 			}
@@ -535,3 +534,21 @@ def trip_exists(trip_id):
 	(existence,) = c.fetchone()
 	return existence
 
+import pandas
+def fetch(table_name):
+    """fetch a table from database"""
+    c = cursor()
+    c.execute("""
+              SELECT column_name FROM information_schema.columns
+              WHERE table_name = '{table_name}';
+              """.format(table_name = table_name)
+              )
+    column_names = c.fetchall()
+    column_names = [i[0] for i in column_names]
+    c.execute(
+            """
+            SELECT * FROM {table_name};
+            """.format(table_name = table_name)
+            )
+    
+    return(pandas.DataFrame(c.fetchall(), columns = column_names))

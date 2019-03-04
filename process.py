@@ -4,7 +4,6 @@
 # trips or a range of trips given sequential trip_ids 
 
 import multiprocessing as mp
-from time import sleep
 from trip import Trip
 import db
 from random import shuffle
@@ -14,20 +13,24 @@ from random import shuffle
 
 def process_trip(valid_trip_id):
 	"""worker process called when using multiprocessing"""
-	print 'starting trip:',valid_trip_id
+	print('starting trip:',valid_trip_id)
 	db.reconnect()
 	t = Trip.fromDB(valid_trip_id)
 	t.process()
 
 def process_trips(trip_ids, max_procs = 4):
 	shuffle(trip_ids)
-	print len(trip_ids),'trips in that range'
+	print(len(trip_ids),'trips in that range')
 	# how many parallel processes to use?
-	# max_procs = int(raw_input('max processes --> '))
-	# create a pool of workers and pass them the data
+#	max_procs = int(raw_input('max processes --> '))
+#	create a pool of workers and pass them the data
 	p = mp.Pool(max_procs)
 	p.map(process_trip,trip_ids,chunksize=3)
-	print 'COMPLETED!'
+
+#	for trip_id in trip_ids:
+#			process_trip(trip_id)
+       
+	print('COMPLETED!')
 
 # single mode enters one trip at a time and stops when 
 	# a non-integer is entered
