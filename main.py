@@ -7,8 +7,8 @@ from datetime import timedelta, date, datetime
 #start_date = date(2018, 5, 18)
 #end_date = date(2018, 6, 12)
 
-start = date(2018, 5, 30)
-end = date(2018, 6, 15)
+start = date(2018, 6, 16)
+end = date(2018, 6, 18)
 
 def main(start_date, end_date, aggregate_method):    
     global routes, trips, stop_times, stops
@@ -40,7 +40,7 @@ def main(start_date, end_date, aggregate_method):
         WriteDB.Update_stop_id()
          
         # export retro GTFS files for each day
-        print('\n - exporting retro-GTFS for each day...')
+        print('\n - exporting retro-GTFS for ' + str(Day) + '.....')
         outdir = './output/individuals/' + str(Day)
         if os.path.exists(outdir):
             shutil.rmtree(outdir)
@@ -58,4 +58,4 @@ def daterange(start_date, end_date):
     
     
 if __name__ == '__main__':
-    main(start, end, aggregate_method = 'combine')
+    main(start, end, aggregate_method = 'average')

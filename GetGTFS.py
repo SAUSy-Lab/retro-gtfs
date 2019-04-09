@@ -24,7 +24,7 @@ def GetGTFS(time, Update = True):
     WriteDB.init_DB(reset_all = Update)
     
     # ----- store stop table ----------------------
-    print ("\n - write routes table to database ...")
+    print ("\n - write stops table to database ...")
     StoreStops(stops)
     # -----stop directions table ---------------------
     print ("\n - create and write directions to database ...")
@@ -208,7 +208,7 @@ def StoreStops(stops):
         # progress status
         count = count + 1
         if round(count*100/Total) % 2 == 0:
-            sys.stdout.write("\r" + "progress: {0}%".format(count*100/Total))
+            sys.stdout.write("\r" + "progress: {0}%".format(round(count*100/Total)))
             sys.stdout.flush()
         # store data
         db.try_storing_stop(row['stop_id'],
@@ -237,7 +237,7 @@ def StoreDirections(trips, stop_times):
         # progress status
         count = count + 1
         if round(count*100/Total) % 2 == 0:
-            sys.stdout.write("\r" + "progress: {0}%".format(count*100/Total))
+            sys.stdout.write("\r" + "progress: {0}%".format(round(count*100/Total)))
             sys.stdout.flush()
         # store data
         db.try_storing_direction(trip_id = row.trip_id, route_id = row.route_id, 
