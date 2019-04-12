@@ -1,6 +1,14 @@
 # retro-gtfs
 
-[TOC]
+## Table of Contents
+- [**OverView**](#Overview)
+- [**What the Program does**](#What the Program does)
+- [**Using the code**](#Using the code)
+  - [Requirements](#Requirements)
+  - [Configurations](#Configurations)
+  - [Run](#Run)
+- [**Modifying the Code**](#Modifying the Code)
+- [**Contact us**](#Contact us)
 
 ## Overview
 
