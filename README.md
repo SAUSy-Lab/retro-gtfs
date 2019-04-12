@@ -28,16 +28,7 @@ NOTE: the [wiki](https://github.com/SAUSy-Lab/retro-gtfs/wiki) page contains ins
 
 - An [OSRM-backend](https://github.com/Project-OSRM/osrm-backend) server, local or otherwise.
 
-- A server of archived GTFS-Realtime data that can be queried through HTTP request. An example of such a server can be found [here](TBD). The API calls are currently hard-coded in the [GetGTFS.py](./GetGTFS.py) and [GetGTFSRT.py](./GetGTFSRT.py) scripts. If you would like to use a server with different API syntaxes, you will need to modify [GetGTFS.py](./GetGTFS.py) and [GetGTFSRT.py](./GetGTFSRT.py) scripts in lines that look like:
-
-  ```python
-  ​```
-  APICall = (URL + "api/gtfs/utils/locate-timestamp" +                                   
-            "?source=" + agency + 
-            "&timestamp=" + repr(timestamp)
-            )
-  ​```
-  ```
+- A server of archived GTFS-Realtime data that can be queried through HTTP request. An example of such a server is the [Transi project](https://gitlab.com/cutr-at-usf/transi/getting-started). The API calls are currently hard-coded, so this program is only compatible with the [Transi project](https://gitlab.com/cutr-at-usf/transi/getting-started). However, you can also modify the code so that the program works with your own archived data system, such as a collection of GTFS-Realtime files on disk. Instruction to modify the code is [below](#Modifying the Code).
 
   If you would like to access our data or need help setting up the server, please feel free to [contact us](#Contact us).
 
@@ -50,6 +41,12 @@ Change the file name of [sample conf.py](./sample conf.py) into `conf.py`, then 
 `python main.py`
 
 Output: `./output/individuals` would contain daily retro-GTFS files, `./output/aggregated` would contain aggregated retro-GTFS bundle.
+
+## Modifying the Code
+
+If you would like to use a different data system other than the [Transi project](https://gitlab.com/cutr-at-usf/transi/getting-started), such as a server with different API syntaxes or a collection of files on disk, you will need to modify the two script files [GetGTFS.py](./GetGTFS.py) and [GetGTFSRT.py](./GetGTFSRT.py) scripts. The purposes for these two files are to load GTFS and GTFS-Realtime data respectively. For each file, you can find the instructions in the description of the `execute` function (first function in each file).
+
+If you need help, please feel free to [contact us](#Contact us).
 
 ## Contact us
 

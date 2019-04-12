@@ -3,15 +3,22 @@ sys.path.append("..") # Adds higher directory to python modules path.
 import requests, threading, trip, conf
 from datetime import datetime
 
-def GetAllVehiclePositions(start_time, end_time, trips, increment = 20):
+def execute(start_time, end_time, trips, increment = 20):
     """ fetch all vehicle positions from start_time to end_time (POSIX)
-    increment: increment (in seconds) to send timestamp to API"""
+    increment: increment (in seconds) to send timestamp to API
+    To modify this module for your input data, you need to modify the timestamp loop and the input data
+     - timestamp loop: look at the <loop> section within this function
+     - input data: look at the <input> section within the FetchVehiclePositions function    
+    """
     # ------- initiate global variables --------
     global ended_trips; ended_trips = {'total':0, 'notseen': 0, 'changetrip': 0} # list of trips to send to database
     global fleet; fleet = {} 			# operating vehicles in the ( fleet vid -> trip_obj )
     global fleet_lock; fleet_lock = threading.Lock() 	# prevent simulataneous editing
     global last_update_timestamp; last_update_timestamp = 0 # initiate latest update timestamp for feeds (to check if feeds are being generated)
     timestamp = start_time
+    
+    # <loop>
+    # For example, if you have GTFS-realtime files on disk that are labeled with timestamps, use this timestamp loop to load them in.
     while timestamp < end_time:
         # send vehicle_positions api, update fleet, and store ending trips to DB
         FetchVehiclePositions(timestamp, trips)
@@ -22,10 +29,14 @@ def GetAllVehiclePositions(start_time, end_time, trips, increment = 20):
                 no_fleet = len(fleet), ended_trips = ended_trips, time = datetime.fromtimestamp(timestamp).strftime("%b %d %Y %H:%M:%S"))
                 )
         sys.stdout.flush()
+    # <loop> end
 
 def FetchVehiclePositions(timestamp, trips):
     """send vehicle_positions api call at timestamp, update fleet, and store ending trips to DB"""
-    # send API call
+    # <input>
+    # The main goal of this section is to create a json object named 'ResponseParse' that represents a GTFS-realtime feed.
+    # For example, if your GTFS-realtime protocol buffer file is on disk, load it in by using the gtfs-realtime-bindings python library (https://github.com/MobilityData/gtfs-realtime-bindings/blob/master/python/google/transit/gtfs_realtime_pb2.py)
+    # then convert to json by using the google.protobuf library (https://pypi.org/project/protobuf/)    
     URL = conf.conf['API_URL']
     agency = conf.conf['agency']
     try:
@@ -49,6 +60,9 @@ def FetchVehiclePositions(timestamp, trips):
         return 
     else:
         last_update_timestamp = timestamp
+    
+    # <input> end
+        
     # ----- update fleet------
     ending_trips = []
     global ended_trips; global fleet

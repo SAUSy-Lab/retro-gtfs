@@ -3,10 +3,18 @@ sys.path.append("..") # Adds higher directory to python modules path.
 import requests, numpy, sys, db, pandasql, conf, warnings, WriteDB, sqlalchemy
 from pandas.core.frame import DataFrame
 
-def GetGTFS(time, Update = True):
-    """ Get latest GTFS at timestamp time """
+def execute(time, Update = True):
+    """ Get GTFS package at timestamp time 
+    Output of this functionis 4 data frames: routes, trips, stop_times, stops, all look the same
+    as the corresponding files in GTFS.
+    If you would like to modify this code for your data, you can modify the <input> section of this code.
+    The rest should automatically work.
+    """
     global Time; Time = time
-    if Update:
+    if Update:        
+        # <input>: in the following lines:
+        #  routes, trips, stop_times are all pandas.DataFrame that look the same as the corresponding GTFS tables
+        #  stops would be the same as the GTFS stops.txt table, but 'stop_lat' and 'stop_lon' are named 'lat' and 'lon' instead
         # find exact GTFS timestamp on the database:
         GTFS_timestamp = find_exact_GTFS_timestamp(time)
         # First get all routes
@@ -19,6 +27,7 @@ def GetGTFS(time, Update = True):
         stop_times = GetAllStopTImes(trips = trips, request_time = GTFS_timestamp)
         print("\n - fetching stop info ...")
         stops = GetAllStops(stop_times = stop_times, request_time = GTFS_timestamp)
+        # <input> end
 
     print ("initiate/reset tables in database")
     WriteDB.init_DB(reset_all = Update)
@@ -29,10 +38,7 @@ def GetGTFS(time, Update = True):
     # -----stop directions table ---------------------
     print ("\n - create and write directions to database ...")
     StoreDirections(trips, stop_times)
-    # ----- original stop times table -----------------------
-#    print ("\n - create and write true stop times to database ...")
-#    StoreTrueStopTimes(stop_times)
-# ----- original routestimes table -----------------------
+    # ----- original routestimes table -----------------------
     print ("\n - create and write original routes table to database ...")
     StoreRoutes_orig(routes)
     # ----- original trips table -----------------------

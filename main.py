@@ -14,7 +14,7 @@ def main(start_date, end_date, aggregate_method):
     global routes, trips, stop_times, stops
 #    process.process_trip('1924523060')
     GTFS_timestamp = GetGTFS.latest_GTFS_update(int(time.mktime(datetime.combine(start_date, datetime.min.time()).timetuple())))
-    routes, trips, stop_times, stops = GetGTFS.GetGTFS(GTFS_timestamp)
+    routes, trips, stop_times, stops = GetGTFS.execute(GTFS_timestamp)
     for Day in daterange(start_date, end_date): # for each day in range
         print('----- Running day ' + str(Day) + ' --------------')
         # POSIX start and end time
@@ -30,7 +30,7 @@ def main(start_date, end_date, aggregate_method):
         
         # Get Vehicle Locations, this function also store to DB
         print(' - Getting Vehicle positions ... ')
-        GetGTFSRT.GetAllVehiclePositions(start_time = start_time, end_time = end_time, trips = trips)
+        GetGTFSRT.execute(start_time = start_time, end_time = end_time, trips = trips)
         
         # process vehicle positions in the day
         print('\n - Processing recorded trips ...')
