@@ -19,12 +19,8 @@ def time_loop():
 		without stopping. Calls some other function after setting 
 		itself to go off again"""
 	threading.Timer( 10, time_loop ).start() # int is delay in seconds
-	# request neew vehicles and store them
+	# request new vehicles and store them
 	get_new_vehicles()
-	if getRoutes:
-		# request a route update at random, with p = 0.1
-		if random.random() <= 0.1:
-			fetch_route( random.choice(routes) )
 
 if truncateData:
 	db.empty_tables()
@@ -37,7 +33,7 @@ if getRoutes:
 	for route_id in routes:
 		t = threading.Thread(target=fetch_route,args=(route_id,))
 		t.start()
-		if threading.active_count() >= 20:
+		if threading.active_count() >= 10:
 			sleep(3)
 
 	sleep(10)
