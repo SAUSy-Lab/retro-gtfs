@@ -7,7 +7,6 @@ from numpy import mean
 from shapely.geometry import MultiLineString, asShape
 from shapely.ops import transform as reproject
 from copy import copy
-from geom import cut
 from minor_objects import TimePoint
 
 
@@ -139,8 +138,15 @@ class match(object):
 			parse things into the same format, just as though this had come from 
 			OSRM."""
 		# get the default if there is one
-		route_geom = db.get_route_geom( self.trip.direction_id, self.trip.last_seen )
-		if route_geom: # default available
+#		route_geom = db.get_route_geom( self.trip.direction_id, self.trip.last_seen )
+		# no route_geom at the moment
+		route_geom = False 
+		# if no default
+		if not route_geom: 
+			self.confidence = 0
+			return 
+		# if there WAS a default
+		else: 
 			self.default_route_used = True
 			self.confidence = 1
 			self.geometry = MultiLineString([route_geom])
@@ -152,13 +158,13 @@ class match(object):
 	def print_outcome(self):
 		"""Print the outcome of this match to stdout."""
 		if self.default_route_used and self.confidence == 1:
-			print( '\tdefault route used for direction',self.trip.direction_id )
+			print('\tdefault route used for direction',self.trip.direction_id)
 		elif self.default_route_used and self.confidence == 0:
-			print( '\tdefault route not found for',self.trip.direction_id )
+			print('\tdefault route not found for',self.trip.direction_id)
 		elif not self.default_route_used and self.confidence > conf['min_OSRM_match_quality']:
-			print( '\tOSRM match found with',round(self.confidence,3),'confidence' )
+			print('\tOSRM match found with',round(self.confidence,3),'confidence')
 		else:
-			print( '\tmatching failed for trip',self.trip.trip_id )
+			print('\tmatching failed for trip',self.trip.trip_id)
 
 
 	# Below are functions associated with finding the measure of points along
@@ -250,7 +256,9 @@ class match(object):
 			route. Stops must be within a given distance of the path, but can 
 			repeat if the route passes a stop two or more times. To check for this,
 			the geometry is sliced up into segments and we check just a portion 
-			of the route at a time."""
+			of the route at a time.
+          In this branch, we use all potential stops given by GTFS and disregard the distance
+      """
 		assert len(self.trip.stops) > 0
 		assert self.geometry.length > 0
 		# list of timepoints
@@ -259,19 +267,12 @@ class match(object):
 		path = copy(self.geometry)
 		traversed = 0
 		# while there is more than 750m of path remaining
-		while path.length > 0:
-			subpath, path = cut(path,750)
-			# check for nearby stops
-			for stop in self.trip.stops:
-				# if the stop is close enough
-				stop_dist = subpath.distance(stop.geom)
-				if stop_dist <= conf['stop_dist']:
-					# measure how far it is along the trip
-					m = traversed + subpath.project(stop.geom)
-					# add it to the list of measures
-					potential_timepoints.append( TimePoint(stop,m,stop_dist) )
-			# note what we have already traversed
-			traversed += 750
+		for stop in self.trip.stops:
+			stop_dist = path.distance(stop.geom)
+			# measure how far it is along the trip
+			m = traversed + path.project(stop.geom)
+			# add it to the list of measures
+			potential_timepoints.append( TimePoint(stop,m,stop_dist) )
 		# Now some of these will be duplicates that are close to the cutpoint
 		# and thus are added twice with similar measures
 		# such points need to be removed

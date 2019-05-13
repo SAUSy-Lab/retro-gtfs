@@ -1,16 +1,64 @@
 # retro-gtfs
 
+## Table of Contents
+- [**OverView**](#Overview)
+- [**What the Program does**](#What-the-Program-does)
+- [**Using the code**](#Using-the-code)
+  - [Requirements](#Requirements)
+  - [Configurations](#Configurations)
+  - [Run](#Run)
+- [**Modifying the Code**](#Modifying-the-Code)
+- [**Contact us**](#Contact-us)
+
 ## Overview
-This Python application is designed to collect real-time transit data from the [NextBus API](https://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf) and process it into a "retrospective" or "retroactive" GTFS package. Schedule-based GTFS data describes how transit is expected to operate. This produces GTFS that describes how it *did* operate. The output is not useful for routing actual people on a network, but can be used for a variety of analytical purposes such as comparing routing/accessibility outcomes on the schedule-based vs the retrospective GTFS datasets. Measures can be derived showing the differences between the schedule and the actual operations and these could be interpretted as a measure of performance either for the GTFS package (does it accurately describe reality?) or for the agency in question (do they adhere to their schedules?). 
 
-The program was designed to ingest live-realtime data and store it in a PostgreSQL database. The data could be processed either on the fly or after the fact, and with a bit of work you should also be able to massage an outside source of historical AVL data into a suitable format.
+This branch of Retro-GTFS application is designed to process real-time transit data from an archived [GTFS-Realtime](https://developers.google.com/transit/gtfs-realtime/) data set into a "retrospective" or "retroactive" GTFS package. Schedule-based GTFS data describes how transit is expected to operate. This produces GTFS that describes how it *did* operate. The output is not useful for routing actual people on a network, but can be used for a variety of analytical purposes such as comparing routing/accessibility outcomes on the schedule-based vs the retrospective GTFS datasets. Measures can be derived showing the differences between the schedule and the actual operations and these could be interpreted as a measure of performance either for the GTFS package (does it accurately describe reality?) or for the agency in question (do they adhere to their schedules?).
 
-The final output of the code is a set of CSV .txt files which conform to the GTFS standard. Specifically, we use the `calendar_dates.txt` file to define a unique service pattern for each day, with its own trip_id's and stop times. No two trips are exactly alike, and so there are no repeating service patterns; each day is unique. The output also includes a `shapes.txt` file, but as there is a unique shape for each trip, the file can become very large and you may wish to ignore it. 
+In short, the main difference between the main branch and this branch is that the former collects and processes data from the [NextBus API](https://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf) while the later processes data from archived GTFS-Realtime data. An example of an archived database of GTFS-Realtime data can be found [here](TBD).
 
+## What the Program does
+
+- Fetching GTFS and GTFS-Realtime information. (More details coming)
+- Estimate stop times using OSRM, projection, and interpolation. This creates a retro-GTFS file for each day (More details coming)
+- Aggregating the daily retro-GTFS files into one bundle by either averaging stop times or creating unique `trip_id` for all trips and using `calendar_dates.txt` with `exception_type=1`. (More details coming)
 
 ## Using the code
 
-As for actually using the code, please have a look at the [wiki](https://github.com/SAUSy-Lab/retro-gtfs/wiki), and feel free to [email Nate](mailto:nate.wessel@mail.utoronto.ca) or create an issue if you encounter any problems. 
+NOTE: the [wiki](https://github.com/SAUSy-Lab/retro-gtfs/wiki) page contains instructions for the main branch. Here are instructions  for this branch.
+
+### Requirements
+
+- Python3
+
+- Python modules described in the [requirements.txt](./requirement.txt) file. You can simply run `pip install -r requirements.txt`
+
+- A [Postgres](https://www.postgresql.org/) database and [PostGIS](https://postgis.net/install/)
+
+- An [OSRM-backend](https://github.com/Project-OSRM/osrm-backend) server, local or otherwise.
+
+- A server of archived GTFS-Realtime data that can be queried through HTTP request. An example of such a server is the [Transi project](https://gitlab.com/cutr-at-usf/transi/getting-started). The API calls are currently hard-coded, so this program is only compatible with the [Transi project](https://gitlab.com/cutr-at-usf/transi/getting-started). However, you can also modify the code so that the program works with your own archived data system, such as a collection of GTFS-Realtime files on disk. Instruction to modify the code is [below](#Modifying the Code).
+
+  If you would like to access our data or need help setting up the server, please feel free to [contact us](#Contact-us).
+
+### Configurations
+
+Change the file name of [sample conf.py](./sample conf.py) into `conf.py`, then go through the `conf.py` file and save information for your Postgres database, OSRM server, and API URL.
+
+### Run
+`python main.py`
+
+Output: `./output/individuals` would contain daily retro-GTFS files, `./output/aggregated` would contain aggregated retro-GTFS bundle.
+
+## Modifying the Code
+
+If you would like to use a different data system other than the [Transi project](https://gitlab.com/cutr-at-usf/transi/getting-started), such as a server with different API syntaxes or a collection of files on disk, you will need to modify the two script files [GetGTFS.py](./GetGTFS.py) and [GetGTFSRT.py](./GetGTFSRT.py) scripts. The purposes for these two files are to load GTFS and GTFS-Realtime data respectively. For each file, you can find the instructions in the description of the `execute` function (first function in each file).
+
+If you need help, please feel free to [contact us](#Contact-us).
+
+## Contact us
+
+- Minh Pham: minhpham@usf.edu
+- Sean Barbeau: barbeau@cutr.usf.edu
 
 
 ## Related projects
@@ -18,23 +66,3 @@ As for actually using the code, please have a look at the [wiki](https://github.
 Related projects by other people:
 * https://github.com/WorldBank-Transport/Transitime
 * https://trid.trb.org/view.aspx?id=1394074 (does anyone have a link to the actual paper?)
-* ...
-
-
-## Citation
-
-A paper outlining the project and the basic algorithm was [published in the Journal of Transport Geography](http://www.sciencedirect.com/science/article/pii/S0966692317300388). Please cite that work for any use of this code for research purposes.
-
-```latex
-@Article{Wessel2017,
-  author    = {Wessel, Nate and Allen, Jeff and Farber, Steven},
-  title     = {Constructing a Routable Retrospective Transit Timetable from a Real-time Vehicle Location Feed and GTFS},
-  journal   = {Journal of Transport Geography},
-  year      = {2017},
-  volume    = {62},
-  pages     = {92-97},
-  url       = {http://sausy.ca/wp-content/uploads/2017/11/retro-GTFS-paper.pdf}
-}
-```
-
-One may also be interested in _[On the Accuracy of Schedule-Based GTFS for Measuring Accessibility](https://osf.io/preprints/socarxiv/hzgpd/)_, currently available as a working paper. 

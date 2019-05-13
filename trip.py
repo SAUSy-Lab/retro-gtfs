@@ -1,9 +1,8 @@
 # documentation on the nextbus feed:
 # http://www.nextbus.com/xmlFeedDocs/NextBusXMLFeed.pdf
 
-import re, db, math, random 
+import re, db, math, random , warnings
 import map_api
-from geom import cut
 from numpy import mean
 from conf import conf
 from shapely.wkb import loads as loadWKB, dumps as dumpWKB
@@ -94,6 +93,31 @@ class Trip(object):
 			[ v.time for v in self.vehicles ],
 			dumpWKB( self.get_geom(), hex=True )
 		)
+        
+	def save_overwrite(self):
+		"""same as save but if there is a duplicate, store the new one if it is longer."""
+		c = db.cursor()
+		c.execute(
+            """
+			SELECT times
+			FROM {trips}
+			WHERE trip_id = %(trip_id)s
+		    """.format(**conf['db']['tables']), { 'trip_id':self.trip_id }
+                )
+		exist_times = c.fetchone()
+		if exist_times is None: self.save()
+		else:            
+			old_duration = max(exist_times[0]) - min(exist_times[0])
+			newtimes = [v.time for v in self.vehicles]
+			new_duration = max(newtimes) - min(newtimes)
+			warnings.warn("\n trip {id} has duplicate. new duration: {new} old duration: {old} \n".format(id=self.trip_id, old = old_duration, new = new_duration), stacklevel = 8)			
+			if old_duration > new_duration: 
+				return                
+			else:
+				c.execute("DELETE FROM {trips_table} where trip_id = '{id}'".format(
+                        trips_table=conf['db']['tables']['trips'], id = self.trip_id)
+                        )                
+				self.save()
 
 
 	def process(self):
@@ -163,6 +187,7 @@ class Trip(object):
 		# create a match object, passing it this trip to get it started
 		self.match = map_api.match(self)
 		if not self.match.is_useable:
+			print('-- match problem--')
 			return db.ignore_trip(self.trip_id,'match problem')
 		# store the match info and geom in the DB
 		db.add_trip_match(
@@ -174,6 +199,13 @@ class Trip(object):
 
 	def interpolate_stop_times(self):
 		"""Interpolates stop times after map matching."""
+		if not self.match.is_useable:
+			return
+		# get the stops (as a list of Stop objects)
+		self.stops = db.get_stops(self.trip_id)
+		# locate the stops on the route. This generates a list of timepoints
+		# with measures but without times. These are sorted already by measure
+		self.timepoints = self.match.locate_stops_on_route()
 		# interpolate/extrapolate times for each timepoint
 		for timepoint in self.timepoints:
 			timepoint.set_time( self.interpolate_time(timepoint.measure) )
@@ -195,7 +227,7 @@ class Trip(object):
 					self.vehicles.pop(index)
 					self.ignored_vehicles.append(v)
 		else:
-			print( 'ERROR' )
+			print('ERROR')
 
 
 	def has_errors(self):

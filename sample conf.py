@@ -8,28 +8,26 @@ import pyproj
 
 # this must be a meter-based projection appropriate for your region
 # UTM projections are suggested. 
-PROJECT_EPSG = 32723
+PROJECT_EPSG = 26759 # look up on https://www.epsg-registry.org/
 
 conf = {
 	# PostgreSQL database connnection
 	'db':
 		{
 			'host':'localhost',
-			'name':'', # database name
-			'user':'',
-			'password':'',
+			'name':'db1', # database name
+			'user':'username',
+			'password':'password',
 			'tables':{
-				# these are SQL-safe table names used directly in queries
-				# if you set up the tables with create_nb_tables.sql, you have likely changed the prefix
-				'trips':'prefix_trips',
-				'stops':'prefix_stops',
-				'stop_times':'prefix_stop_times',
-				'directions':'prefix_directions'
+				# these are table names used directly in queries. You can simply change the prefix of agency name (in this case, 'psta')
+				'trips':'psta_trips',
+				'stops':'psta_stops',
+				'stop_times':'psta_stop_times',
+				'directions':'psta_directions'
 			}
 		},
-	# agency tag for the Nextbus API, which can be found at
-	# http://webservices.nextbus.com/service/publicXMLFeed?command=agencyList
-	'agency':'ttc',
+	# agency name or accronym
+	'agency':'psta',
 	# Where is the ORSM server? Give the root url
 	'OSRMserver':{
 		'url':'http://localhost:5002',
@@ -55,5 +53,12 @@ conf = {
 	# estimated GPS error radius in meters
 	# this applies to all points and effects map-matching
 	# higher values include more potential matches but take longer to process
-	'error_radius':20
+	'error_radius':20,
+    'API_URL': "http://example.com",
+	# This is the URL where you can send queries to get archived data of GTFS and GTFS-Realtime.
+		# This is the URL where you can send queries to get archived data of GTFS and GTFS-Realtime.
+	'aggregate_method': 'average',
+	# method to aggregate individual retro-GTFS files. 'average' means taking the mean of stop_times. 'combine' mean creating a unique trip_id for trips in each day and using calendar_dates with exception_type = 1
+	'n_processes': 7
+	# number of parallel processes. Using too many may increase the processing time from OSRM and the program will time out OSRM, resulting in non-matching trips that will not be saved in the result.
 }
