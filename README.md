@@ -9,7 +9,7 @@ The final output of the code is a set of CSV .txt files which conform to the GTF
 
 
 ## Using the code
-As for actually using the code, please have a look at the [wiki](https://github.com/SAUSy-Lab/retro-gtfs/wiki), and feel free to [email Nate](mailto:nate.wessel@mail.utoronto.ca) or create an issue if you encounter any problems. 
+As for actually using the code, please have a look at the [wiki](https://github.com/SAUSy-Lab/retro-gtfs/wiki), and feel free to [email Nate](mailto:nate@natewessel.com) or create an issue if you encounter any problems. 
 
 
 ## Related projects

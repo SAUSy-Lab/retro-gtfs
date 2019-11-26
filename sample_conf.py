@@ -8,7 +8,7 @@ import pyproj
 
 # this must be a meter-based projection appropriate for your region
 # UTM projections are suggested. 
-PROJECT_EPSG = 32723
+PROJECT_EPSG = 26917
 
 conf = {
 	# PostgreSQL database connnection
@@ -20,7 +20,8 @@ conf = {
 			'password':'',
 			'tables':{
 				# these are SQL-safe table names used directly in queries
-				# if you set up the tables with create_nb_tables.sql, you have likely changed the prefix
+				# if you set up the tables with etc/create-agency-tables.sql, 
+				# you have likely changed the prefix
 				'trips':'prefix_trips',
 				'stops':'prefix_stops',
 				'stop_times':'prefix_stop_times',
@@ -32,7 +33,7 @@ conf = {
 	'agency':'ttc',
 	# Where is the ORSM server? Give the root url
 	'OSRMserver':{
-		'url':'http://localhost:5002',
+		'url':'http://localhost:5000',
 		'timeout':10 # seconds
 	},
 	'min_OSRM_match_quality':0.3,
