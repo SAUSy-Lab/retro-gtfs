@@ -76,7 +76,8 @@ def new_trip_id():
 
 
 def new_block_id():
-	"""get a next block_id to start from, defaulting to 1"""
+	"""Get a next block_id to start from, defaulting to 1. 
+		This is used to group sequential trips by the same vehicle."""
 	c = cursor()
 	c.execute(
 		"""
