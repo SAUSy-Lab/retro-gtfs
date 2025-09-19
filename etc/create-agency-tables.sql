@@ -81,7 +81,6 @@ CREATE TABLE :trips_table (
 	clean_geom geometry( LINESTRING, :EPSG ), -- geometry of points used in map matching
 	problem varchar DEFAULT '' -- description of any problems that arise
 );
-CREATE INDEX ON :trips_table (trip_id);
 
 /*
 	Where interpolated stop times are stored for each trip. 
