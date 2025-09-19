@@ -54,7 +54,7 @@ CREATE TABLE :directions_table (
 CREATE INDEX ON :directions_table (direction_id);
 
 /*
-	Data on vehilce locations fetched from the API gets stored here along 
+	Data on vehicle locations fetched from the API gets stored here along 
 	with map-matched geometries. When extracted into GTFS, most feilds here 
 	are ignored. "Trips" are the primary object of the data processing sequence.  
 */
