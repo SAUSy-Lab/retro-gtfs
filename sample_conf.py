@@ -36,7 +36,11 @@ conf = {
 	},
 	'min_OSRM_match_quality':0.3,
 	# function for projecting from lat-lon for shapely
-	'projection':Transformer.from_crs('EPSG:4326', 'EPSG:'+str(PROJECT_EPSG)).transform,
+	'projection':Transformer.from_crs(
+		'EPSG:4326',
+		'EPSG:'+str(PROJECT_EPSG),
+		always_xy=True
+	).transform,
 	'localEPSG':PROJECT_EPSG,
 	# https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	# This must be an unabreviated timezone name to allow postgresql to account 
