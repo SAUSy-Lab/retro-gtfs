@@ -42,8 +42,8 @@ conf = {
 	# http://all-geo.org/volcan01010/2012/11/change-coordinates-with-pyproj/
 	'projection':partial(
 		 pyproj.transform,
-		 pyproj.Proj('+init=EPSG:4326'),
-		 pyproj.Proj('+init=EPSG:'+str(PROJECT_EPSG))
+		 pyproj.Proj('EPSG:4326'),
+		 pyproj.Proj('EPSG:'+str(PROJECT_EPSG))
 	),
 	'localEPSG':PROJECT_EPSG,
 	# https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
