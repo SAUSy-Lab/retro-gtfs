@@ -2,9 +2,7 @@
 # set the parameters unique to your setup below
 # then rename this file to "conf.py"
 
-# for handling projections
-from functools import partial
-import pyproj
+from pyproj import Transformer
 
 # this must be a meter-based projection appropriate for your region
 # UTM projections are suggested. 
@@ -38,13 +36,11 @@ conf = {
 	},
 	'min_OSRM_match_quality':0.3,
 	# function for projecting from lat-lon for shapely
-	# http://toblerity.org/shapely/manual.html#other-transformations
-	# http://all-geo.org/volcan01010/2012/11/change-coordinates-with-pyproj/
-	'projection':partial(
-		 pyproj.transform,
-		 pyproj.Proj('+init=EPSG:4326'),
-		 pyproj.Proj('+init=EPSG:'+str(PROJECT_EPSG))
-	),
+	'projection':Transformer.from_crs(
+		'EPSG:4326',
+		'EPSG:'+str(PROJECT_EPSG),
+		always_xy=True
+	).transform,
 	'localEPSG':PROJECT_EPSG,
 	# https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	# This must be an unabreviated timezone name to allow postgresql to account 

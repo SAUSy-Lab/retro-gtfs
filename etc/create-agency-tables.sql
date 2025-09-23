@@ -54,7 +54,7 @@ CREATE TABLE :directions_table (
 CREATE INDEX ON :directions_table (direction_id);
 
 /*
-	Data on vehilce locations fetched from the API gets stored here along 
+	Data on vehicle locations fetched from the API gets stored here along 
 	with map-matched geometries. When extracted into GTFS, most feilds here 
 	are ignored. "Trips" are the primary object of the data processing sequence.  
 */
@@ -81,7 +81,6 @@ CREATE TABLE :trips_table (
 	clean_geom geometry( LINESTRING, :EPSG ), -- geometry of points used in map matching
 	problem varchar DEFAULT '' -- description of any problems that arise
 );
-CREATE INDEX ON :trips_table (trip_id);
 
 /*
 	Where interpolated stop times are stored for each trip. 
