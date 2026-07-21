@@ -387,7 +387,7 @@ def try_storing_stop(stop_id,stop_name,stop_code,lon,lat):
 
 
 def try_storing_direction(route_id,did,title,name,branch,useforui,stops):
-	"""we have recieved a report of a route direction from the 
+	"""we have received a report of a route direction from the 
 		routeConfig data. Is this a new direction? Have we already 
 		heard of it? Decide whether to store it or ignore it. If 
 		absolutely nothing has changed about the record, ignore it. 
@@ -524,4 +524,3 @@ def trip_exists(trip_id):
 	)
 	(existence,) = c.fetchone()
 	return existence
-
