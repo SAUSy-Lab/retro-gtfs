@@ -1,5 +1,5 @@
 # functions involving BD interaction
-import psycopg2, json, math
+import psycopg2, json, math, threading, time
 from conf import conf
 from shapely.wkb import loads as loadWKB
 from minor_objects import Stop, Vehicle
@@ -20,9 +20,24 @@ def reconnect():
 	connection = psycopg2.connect(conn_string)
 	connection.autocommit = True
 
+_lock = threading.Lock()
+
 def cursor():
-	"""provide a cursor"""
-	return connection.cursor()
+	"""provide a cursor, reconnecting first if the connection is dead"""
+	with _lock:
+		try:
+			c = connection.cursor()
+			c.execute('SELECT 1')
+			return c
+		except (psycopg2.InterfaceError, psycopg2.OperationalError):
+			for attempt in range(10):
+				try:
+					reconnect()
+					print('reconnected to database')
+					return connection.cursor()
+				except psycopg2.OperationalError:
+					time.sleep(3)
+			raise
 
 def get_trip_attributes(trip_id):
 	"""Return the attributes of a stored trip necessary 
